@@ -1,14 +1,18 @@
 import { View, Text, StyleSheet, ScrollView, Pressable, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/auth';
+import { useCart } from '../../contexts/cart';
 import Toast from 'react-native-toast-message';
 import { useState } from 'react';
 import { AlertDialog } from '../../components/AlertDialog';
+import { useRouter } from 'expo-router';
 
 export default function ProfileScreen() {
   const { session, signOut } = useAuth();
+  const { getTotalAmount, getItemCount } = useCart();
   const userData = session?.user?.user_metadata;
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const router = useRouter();
 
   const handleSignOut = async () => {
     try {
@@ -46,25 +50,40 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {menuItems.map((section) => (
-          <View key={section.id} style={styles.section}>
-            <Text style={styles.sectionTitle}>{section.title}</Text>
-            {section.items.map((item) => (
-              <Pressable
-                key={item.id}
-                style={({ pressed }) => [
-                  styles.menuItem,
-                  pressed && styles.menuItemPressed,
-                ]}>
-                <View style={styles.menuItemContent}>
-                  <Ionicons name={item.icon} size={24} color="#666666" />
-                  <Text style={styles.menuItemText}>{item.title}</Text>
+        <View style={styles.section}>
+          <Pressable
+            onPress={() => router.push('/(tabs)/cart')}
+            style={({ pressed }) => [
+              styles.menuItem,
+              pressed && styles.menuItemPressed,
+            ]}>
+            <View style={styles.menuItemContent}>
+              <Ionicons name="cart-outline" size={24} color="#666666" />
+              <Text style={styles.menuItemText}>Cart</Text>
+              {getItemCount() > 0 && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>
+                    {getItemCount()} • ₦{getTotalAmount().toLocaleString()}
+                  </Text>
                 </View>
-                <Ionicons name="chevron-forward" size={24} color="#666666" />
-              </Pressable>
-            ))}
-          </View>
-        ))}
+              )}
+            </View>
+            <Ionicons name="chevron-forward" size={24} color="#666666" />
+          </Pressable>
+
+          <Pressable
+            onPress={() => {}}
+            style={({ pressed }) => [
+              styles.menuItem,
+              pressed && styles.menuItemPressed,
+            ]}>
+            <View style={styles.menuItemContent}>
+              <Ionicons name="person-outline" size={24} color="#666666" />
+              <Text style={styles.menuItemText}>Edit Profile</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={24} color="#666666" />
+          </Pressable>
+        </View>
 
         <Pressable
           onPress={() => setShowLogoutConfirm(true)}
@@ -91,39 +110,6 @@ export default function ProfileScreen() {
     </View>
   );
 }
-
-const menuItems = [
-  {
-    id: 'preferences',
-    title: 'Preferences',
-    icon: 'settings-outline',
-    items: [
-      { id: 'notifications', title: 'Notifications', icon: 'notifications-outline' },
-      { id: 'location', title: 'Location Services', icon: 'location-outline' },
-      { id: 'appearance', title: 'Appearance', icon: 'color-palette-outline' },
-    ],
-  },
-  {
-    id: 'account',
-    title: 'Account',
-    icon: 'person-outline',
-    items: [
-      { id: 'payment', title: 'Payment Methods', icon: 'card-outline' },
-      { id: 'addresses', title: 'Saved Addresses', icon: 'map-outline' },
-      { id: 'security', title: 'Security', icon: 'shield-outline' },
-    ],
-  },
-  {
-    id: 'support',
-    title: 'Support',
-    icon: 'help-circle-outline',
-    items: [
-      { id: 'help', title: 'Help Center', icon: 'information-circle-outline' },
-      { id: 'contact', title: 'Contact Us', icon: 'mail-outline' },
-      { id: 'about', title: 'About', icon: 'information-outline' },
-    ],
-  },
-];
 
 const styles = StyleSheet.create({
   container: {
@@ -171,19 +157,12 @@ const styles = StyleSheet.create({
   },
   section: {
     marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#666666',
-    marginLeft: 16,
-    marginBottom: 8,
+    backgroundColor: '#ffffff',
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#ffffff',
     padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#e5e5e5',
@@ -194,10 +173,23 @@ const styles = StyleSheet.create({
   menuItemContent: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
   },
   menuItemText: {
     marginLeft: 12,
     fontSize: 16,
+  },
+  badge: {
+    backgroundColor: '#007AFF',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    marginLeft: 8,
+  },
+  badgeText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   logoutButton: {
     flexDirection: 'row',

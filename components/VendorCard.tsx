@@ -15,7 +15,7 @@ export function VendorCard({ vendor, showDistance = false }: VendorCardProps) {
   const router = useRouter();
 
   const handlePress = () => {
-    router.push(`/vendor/${vendor.id}`);
+    router.push(`/(tabs)/vendor/${vendor.id}`);
   };
 
   return (

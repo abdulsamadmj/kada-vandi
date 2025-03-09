@@ -7,7 +7,7 @@ import { IconSymbol } from "@/components/ui/IconSymbol";
 import TabBarBackground from "@/components/ui/TabBarBackground";
 import { Colors } from "@/constants/Colors";
 import { useColorScheme } from "@/hooks/useColorScheme";
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/contexts/auth";
 
 export default function TabLayout() {
@@ -81,12 +81,27 @@ export default function TabLayout() {
         redirect={!isVendor}
       />
       <Tabs.Screen
+        name="cart"
+        options={{
+          title: "Cart",
+          tabBarIcon: ({ size, color }) => (
+            <Ionicons name="cart" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{
           title: "Profile",
           tabBarIcon: ({ size, color }) => (
             <Ionicons name="person" size={size} color={color} />
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="vendor/[id]"
+        options={{
+          href: null, // Hide from tab bar
         }}
       />
     </Tabs>
