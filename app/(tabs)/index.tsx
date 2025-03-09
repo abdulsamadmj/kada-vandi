@@ -59,13 +59,13 @@ export default function HomeScreen() {
   // Subscribe to real-time updates
   useEffect(() => {
     const channel = supabase
-      .channel("vendors")
+      .channel("vendor_locations")
       .on(
         "postgres_changes",
         {
-          event: "*",
+          event: "UPDATE",
           schema: "public",
-          table: "vendors",
+          table: "vendor_locations",
         },
         () => {
           // Refresh the vendors list when changes occur
