@@ -83,6 +83,7 @@ export default function HomeScreen() {
       // Get fresh location data
       const newLocation = await Location.getCurrentPositionAsync({});
       setLocation(newLocation);
+      fetchVendors();
     } catch (error) {
       console.error("Refresh error:", error);
       setErrorMsg("Error refreshing data");
