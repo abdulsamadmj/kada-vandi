@@ -1,74 +1,172 @@
-import { Image, StyleSheet, Platform } from 'react-native';
+import { useEffect, useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Image,
+  Platform,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import * as Location from "expo-location";
+import { useAuth } from "../../contexts/auth";
 
-import { HelloWave } from '@/components/HelloWave';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
+// Only import MapView when not on web
+let MapView: any;
+let Marker: any;
+// if (Platform.OS !== 'web') {
+//   const Maps = require('react-native-maps');
+//   MapView = Maps.default;
+//   Marker = Maps.Marker;
+// }
+
+interface Vendor {
+  id: string;
+  name: string;
+  type: string;
+  rating: number;
+  image: string;
+  location: {
+    latitude: number;
+    longitude: number;
+  };
+}
+
+const mockVendors: Vendor[] = [
+  {
+    id: "1",
+    name: "Fresh Delights Food Truck",
+    type: "Food Truck",
+    rating: 4.8,
+    image: "https://images.unsplash.com/photo-1565123409695-7b5ef63a2efb?w=500",
+    location: {
+      latitude: 37.78825,
+      longitude: -122.4324,
+    },
+  },
+  {
+    id: "2",
+    name: "Green Grocery Van",
+    type: "Grocery",
+    rating: 4.6,
+    image: "https://images.unsplash.com/photo-1542838132-92c53300491e?w=500",
+    location: {
+      latitude: 37.78925,
+      longitude: -122.4344,
+    },
+  },
+];
 
 export default function HomeScreen() {
+  const { session } = useAuth();
+  const userData = session?.user?.user_metadata;
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12'
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-        <ThemedText>
-          Tap the Explore tab to learn more about what's included in this starter app.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          When you're ready, run{' '}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Welcome, {userData?.name || "User"}!</Text>
+      </View>
+
+      <View style={styles.container}>
+        <Text style={styles.header}>Your Dashboard</Text>
+        <ScrollView style={styles.vendorList}>
+          {mockVendors.map((vendor) => (
+            <View key={vendor.id} style={styles.vendorCard}>
+              <Image
+                source={{ uri: vendor.image }}
+                style={styles.vendorImage}
+              />
+              <View style={styles.vendorInfo}>
+                <Text style={styles.vendorName}>{vendor.name}</Text>
+                <Text style={styles.vendorType}>{vendor.type}</Text>
+                <View style={styles.ratingContainer}>
+                  <Ionicons name="star" size={16} color="#FFD700" />
+                  <Text style={styles.rating}>{vendor.rating}</Text>
+                </View>
+              </View>
+            </View>
+          ))}
+        </ScrollView>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  container: {
+    flex: 1,
+    backgroundColor: "#f5f5f5",
   },
-  stepContainer: {
-    gap: 8,
+  header: {
+    padding: 16,
+    backgroundColor: "#ffffff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#e5e5e5",
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#000000",
+  },
+  mapContainer: {
+    height: 200,
+    margin: 16,
+    borderRadius: 12,
+    overflow: "hidden",
+  },
+  webMapPlaceholder: {
+    backgroundColor: "#e5e5e5",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  webMapText: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#666666",
+  },
+  webMapSubtext: {
+    fontSize: 14,
+    color: "#666666",
+    marginTop: 8,
+  },
+  map: {
+    flex: 1,
+  },
+  vendorList: {
+    padding: 16,
+  },
+  vendorCard: {
+    flexDirection: "row",
+    backgroundColor: "#ffffff",
+    borderRadius: 12,
+    marginBottom: 16,
+    overflow: "hidden",
+  },
+  vendorImage: {
+    width: 100,
+    height: 100,
+  },
+  vendorInfo: {
+    flex: 1,
+    padding: 12,
+  },
+  vendorName: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 4,
+  },
+  vendorType: {
+    fontSize: 14,
+    color: "#666666",
     marginBottom: 8,
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  ratingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  rating: {
+    marginLeft: 4,
+    fontSize: 14,
+    color: "#666666",
   },
 });
