@@ -8,6 +8,7 @@ export default function SignUp() {
   const [activeTab, setActiveTab] = useState<'customer' | 'vendor'>('customer');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
   const [contact, setContact] = useState('');
   const [businessName, setBusinessName] = useState('');
@@ -16,11 +17,20 @@ export default function SignUp() {
   const router = useRouter();
 
   const handleSignUp = async () => {
-    if (!email || !password || !name) {
+    if (!email || !password || !name || !confirmPassword) {
       Toast.show({
         type: 'error',
         text1: 'Missing fields',
         text2: 'Please fill in all required fields',
+      });
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      Toast.show({
+        type: 'error',
+        text1: 'Passwords do not match',
+        text2: 'Please ensure both passwords are the same',
       });
       return;
     }
@@ -146,6 +156,15 @@ export default function SignUp() {
         placeholder="Password"
         value={password}
         onChangeText={setPassword}
+        secureTextEntry
+        editable={!loading}
+      />
+
+      <TextInput
+        style={styles.input}
+        placeholder="Confirm Password"
+        value={confirmPassword}
+        onChangeText={setConfirmPassword}
         secureTextEntry
         editable={!loading}
       />
