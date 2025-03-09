@@ -84,7 +84,6 @@ export default function ProfileScreen() {
         confirmText="Log Out"
         onConfirm={() => {
           setShowLogoutConfirm(false);
-          console.log('signing out');
           handleSignOut();
         }}
         onCancel={() => setShowLogoutConfirm(false)}

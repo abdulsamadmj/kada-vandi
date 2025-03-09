@@ -1,86 +1,152 @@
-import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, Pressable, TextInput, Modal, Alert } from 'react-native';
+import { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, FlatList, Pressable, TextInput, Modal, Alert, ActivityIndicator, RefreshControl } from 'react-native';
 import { useAuth } from '../../contexts/auth';
 import Toast from 'react-native-toast-message';
-
-interface InventoryItem {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-  quantity: number;
-  category: string;
-}
+import { supabase } from '../../lib/supabase';
+import { Product } from '../../types/database';
 
 export default function Inventory() {
-  const { user } = useAuth();
-  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const { session } = useAuth();
+  const [inventory, setInventory] = useState<Product[]>([]);
   const [modalVisible, setModalVisible] = useState(false);
-  const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
+  const [editingItem, setEditingItem] = useState<Product | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isMutating, setIsMutating] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     price: '',
-    quantity: '',
-    category: '',
+    inventory_count: '',
+    expiration_date: '',
   });
 
-  // Simulated API calls (replace with actual API calls later)
   const fetchInventory = async () => {
-    // TODO: Replace with actual API call
-    // For now, using mock data
-    const mockData: InventoryItem[] = [
-      {
-        id: '1',
-        name: 'Sample Item',
-        description: 'This is a sample item',
-        price: 9.99,
-        quantity: 10,
-        category: 'General',
-      },
-    ];
-    setInventory(mockData);
+    try {
+      const { data: vendorData, error: vendorError } = await supabase
+        .from('vendors')
+        .select('id')
+        .eq('user_id', session?.user.id)
+        .single();
+
+      if (vendorError) throw vendorError;
+
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('vendor_id', vendorData.id)
+        .order('name');
+
+      if (error) throw error;
+      setInventory(data);
+    } catch (error) {
+      console.error('Error fetching inventory:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Failed to load inventory',
+        text2: error instanceof Error ? error.message : 'Please try again later',
+      });
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
   };
 
-  const addItem = async (item: Omit<InventoryItem, 'id'>) => {
-    // TODO: Replace with actual API call
-    const newItem = {
-      ...item,
-      id: Date.now().toString(),
-    };
-    setInventory([...inventory, newItem]);
-    Toast.show({
-      type: 'success',
-      text1: 'Item added successfully',
-    });
+  const addItem = async (item: Omit<Product, 'id' | 'vendor_id'>) => {
+    try {
+      setIsMutating(true);
+      
+      // Get vendor_id first
+      const { data: vendorData, error: vendorError } = await supabase
+        .from('vendors')
+        .select('id')
+        .eq('user_id', session?.user.id)
+        .single();
+
+      if (vendorError) throw vendorError;
+
+      const { error } = await supabase
+        .from('products')
+        .insert([{ ...item, vendor_id: vendorData.id }]);
+
+      if (error) throw error;
+
+      Toast.show({
+        type: 'success',
+        text1: 'Item added successfully',
+      });
+      
+      fetchInventory();
+    } catch (error) {
+      console.error('Error adding item:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Failed to add item',
+        text2: error instanceof Error ? error.message : 'Please try again later',
+      });
+    } finally {
+      setIsMutating(false);
+    }
   };
 
-  const updateItem = async (id: string, updatedItem: Omit<InventoryItem, 'id'>) => {
-    // TODO: Replace with actual API call
-    setInventory(inventory.map(item => 
-      item.id === id ? { ...updatedItem, id } : item
-    ));
-    Toast.show({
-      type: 'success',
-      text1: 'Item updated successfully',
-    });
+  const updateItem = async (id: string, updatedItem: Partial<Omit<Product, 'id' | 'vendor_id'>>) => {
+    try {
+      setIsMutating(true);
+      const { error } = await supabase
+        .from('products')
+        .update(updatedItem)
+        .eq('id', id);
+
+      if (error) throw error;
+
+      Toast.show({
+        type: 'success',
+        text1: 'Item updated successfully',
+      });
+      
+      fetchInventory();
+    } catch (error) {
+      console.error('Error updating item:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Failed to update item',
+        text2: error instanceof Error ? error.message : 'Please try again later',
+      });
+    } finally {
+      setIsMutating(false);
+    }
   };
 
   const deleteItem = async (id: string) => {
-    // TODO: Replace with actual API call
-    setInventory(inventory.filter(item => item.id !== id));
-    Toast.show({
-      type: 'success',
-      text1: 'Item deleted successfully',
-    });
+    try {
+      setIsMutating(true);
+      const { error } = await supabase
+        .from('products')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      Toast.show({
+        type: 'success',
+        text1: 'Item deleted successfully',
+      });
+      
+      fetchInventory();
+    } catch (error) {
+      console.error('Error deleting item:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Failed to delete item',
+        text2: error instanceof Error ? error.message : 'Please try again later',
+      });
+    } finally {
+      setIsMutating(false);
+    }
   };
 
-  useEffect(() => {
-    fetchInventory();
-  }, []);
-
   const handleSubmit = () => {
-    if (!formData.name || !formData.price || !formData.quantity) {
+    if (!formData.name || !formData.price || !formData.inventory_count) {
       Toast.show({
         type: 'error',
         text1: 'Missing required fields',
@@ -91,10 +157,10 @@ export default function Inventory() {
 
     const itemData = {
       name: formData.name,
-      description: formData.description,
+      description: formData.description || null,
       price: parseFloat(formData.price),
-      quantity: parseInt(formData.quantity),
-      category: formData.category,
+      inventory_count: parseInt(formData.inventory_count),
+      expiration_date: formData.expiration_date || null,
     };
 
     if (editingItem) {
@@ -112,20 +178,20 @@ export default function Inventory() {
       name: '',
       description: '',
       price: '',
-      quantity: '',
-      category: '',
+      inventory_count: '',
+      expiration_date: '',
     });
     setEditingItem(null);
   };
 
-  const handleEdit = (item: InventoryItem) => {
+  const handleEdit = (item: Product) => {
     setEditingItem(item);
     setFormData({
       name: item.name,
-      description: item.description,
+      description: item.description || '',
       price: item.price.toString(),
-      quantity: item.quantity.toString(),
-      category: item.category,
+      inventory_count: item.inventory_count.toString(),
+      expiration_date: item.expiration_date || '',
     });
     setModalVisible(true);
   };
@@ -141,13 +207,23 @@ export default function Inventory() {
     );
   };
 
-  const renderItem = ({ item }: { item: InventoryItem }) => (
+  const onRefresh = useCallback(() => {
+    setIsRefreshing(true);
+    fetchInventory();
+  }, []);
+
+  useEffect(() => {
+    fetchInventory();
+  }, []);
+
+  const renderItem = ({ item }: { item: Product }) => (
     <View style={styles.itemContainer}>
       <View style={styles.itemInfo}>
         <Text style={styles.itemName}>{item.name}</Text>
-        <Text style={styles.itemDescription}>{item.description}</Text>
+        {item.description && <Text style={styles.itemDescription}>{item.description}</Text>}
         <Text style={styles.itemDetails}>
-          Price: ${item.price} | Quantity: {item.quantity} | Category: {item.category}
+          Price: ₦{item.price.toLocaleString()} | Stock: {item.inventory_count}
+          {item.expiration_date && ` | Expires: ${new Date(item.expiration_date).toLocaleDateString()}`}
         </Text>
       </View>
       <View style={styles.itemActions}>
@@ -160,6 +236,14 @@ export default function Inventory() {
       </View>
     </View>
   );
+
+  if (isLoading) {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <ActivityIndicator size="large" color="#007AFF" />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -181,6 +265,12 @@ export default function Inventory() {
         renderItem={renderItem}
         keyExtractor={item => item.id}
         contentContainerStyle={styles.listContainer}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={onRefresh}
+          />
+        }
       />
 
       <Modal
@@ -200,14 +290,16 @@ export default function Inventory() {
               placeholder="Item Name"
               value={formData.name}
               onChangeText={(text) => setFormData({ ...formData, name: text })}
+              editable={!isMutating}
             />
 
             <TextInput
               style={styles.input}
-              placeholder="Description"
+              placeholder="Description (Optional)"
               value={formData.description}
               onChangeText={(text) => setFormData({ ...formData, description: text })}
               multiline
+              editable={!isMutating}
             />
 
             <TextInput
@@ -216,21 +308,24 @@ export default function Inventory() {
               value={formData.price}
               onChangeText={(text) => setFormData({ ...formData, price: text })}
               keyboardType="numeric"
+              editable={!isMutating}
             />
 
             <TextInput
               style={styles.input}
-              placeholder="Quantity"
-              value={formData.quantity}
-              onChangeText={(text) => setFormData({ ...formData, quantity: text })}
+              placeholder="Stock Quantity"
+              value={formData.inventory_count}
+              onChangeText={(text) => setFormData({ ...formData, inventory_count: text })}
               keyboardType="numeric"
+              editable={!isMutating}
             />
 
             <TextInput
               style={styles.input}
-              placeholder="Category"
-              value={formData.category}
-              onChangeText={(text) => setFormData({ ...formData, category: text })}
+              placeholder="Expiration Date (YYYY-MM-DD)"
+              value={formData.expiration_date}
+              onChangeText={(text) => setFormData({ ...formData, expiration_date: text })}
+              editable={!isMutating}
             />
 
             <View style={styles.modalButtons}>
@@ -240,16 +335,22 @@ export default function Inventory() {
                   setModalVisible(false);
                   resetForm();
                 }}
+                disabled={isMutating}
               >
                 <Text style={styles.modalButtonText}>Cancel</Text>
               </Pressable>
               <Pressable
                 style={[styles.modalButton, styles.submitButton]}
                 onPress={handleSubmit}
+                disabled={isMutating}
               >
-                <Text style={styles.modalButtonText}>
-                  {editingItem ? 'Update' : 'Add'}
-                </Text>
+                {isMutating ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={styles.modalButtonText}>
+                    {editingItem ? 'Update' : 'Add'}
+                  </Text>
+                )}
               </Pressable>
             </View>
           </View>
@@ -263,6 +364,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  centerContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   header: {
     flexDirection: 'row',
