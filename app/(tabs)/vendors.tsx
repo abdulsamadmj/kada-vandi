@@ -1,85 +1,95 @@
-import { View, Text, StyleSheet, ScrollView, Image, Pressable } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-
-const mockVendors = [
-  {
-    id: '1',
-    name: 'Fresh Delights Food Truck',
-    type: 'Food Truck',
-    rating: 4.8,
-    reviews: 245,
-    image: 'https://images.unsplash.com/photo-1565123409695-7b5ef63a2efb?w=500',
-    categories: ['Burgers', 'Sandwiches', 'Drinks'],
-    status: 'Open',
-  },
-  {
-    id: '2',
-    name: 'Green Grocery Van',
-    type: 'Grocery',
-    rating: 4.6,
-    reviews: 189,
-    image: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500',
-    categories: ['Vegetables', 'Fruits', 'Organic'],
-    status: 'Open',
-  },
-  {
-    id: '3',
-    name: 'Sweet Treats Ice Cream',
-    type: 'Ice Cream Truck',
-    rating: 4.9,
-    reviews: 312,
-    image: 'https://images.unsplash.com/photo-1505394033641-40c6ad1178d7?w=500',
-    categories: ['Ice Cream', 'Desserts', 'Beverages'],
-    status: 'Closed',
-  },
-];
+import { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl } from 'react-native';
+import { supabase } from '../../lib/supabase';
+import { Vendor } from '../../types/database';
+import { VendorCard } from '../../components/VendorCard';
 
 export default function VendorsScreen() {
+  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const fetchVendors = async () => {
+    try {
+      const { data, error } = await supabase.rpc('get_all_vendors');
+
+      if (error) throw error;
+      setVendors(data || []);
+    } catch (error) {
+      console.error('Error fetching vendors:', error);
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  };
+
+  const onRefresh = () => {
+    setIsRefreshing(true);
+    fetchVendors();
+  };
+
+  useEffect(() => {
+    fetchVendors();
+  }, []);
+
+  // Subscribe to real-time updates for vendor status changes
+  useEffect(() => {
+    const channel = supabase
+      .channel('vendor_status_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'vendor_locations',
+        },
+        () => {
+          // Refresh the vendors list when changes occur
+          fetchVendors();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  if (isLoading) {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <ActivityIndicator size="large" color="#007AFF" />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Featured Vendors</Text>
+        <Text style={styles.title}>All Vendors</Text>
       </View>
 
-      <ScrollView style={styles.vendorList}>
-        {mockVendors.map((vendor) => (
-          <Pressable
-            key={vendor.id}
-            style={({ pressed }) => [
-              styles.vendorCard,
-              pressed && styles.vendorCardPressed,
-            ]}>
-            <Image source={{ uri: vendor.image }} style={styles.vendorImage} />
-            <View style={styles.vendorContent}>
-              <View style={styles.vendorHeader}>
-                <View>
-                  <Text style={styles.vendorName}>{vendor.name}</Text>
-                  <Text style={styles.vendorType}>{vendor.type}</Text>
-                </View>
-                <View style={[
-                  styles.statusBadge,
-                  { backgroundColor: vendor.status === 'Open' ? '#34C759' : '#FF3B30' }
-                ]}>
-                  <Text style={styles.statusText}>{vendor.status}</Text>
-                </View>
-              </View>
-
-              <View style={styles.ratingContainer}>
-                <Ionicons name="star" size={16} color="#FFD700" />
-                <Text style={styles.rating}>{vendor.rating}</Text>
-                <Text style={styles.reviews}>({vendor.reviews} reviews)</Text>
-              </View>
-
-              <View style={styles.categoriesContainer}>
-                {vendor.categories.map((category, index) => (
-                  <View key={index} style={styles.categoryBadge}>
-                    <Text style={styles.categoryText}>{category}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          </Pressable>
-        ))}
+      <ScrollView 
+        style={styles.vendorList}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={onRefresh}
+          />
+        }
+      >
+        {vendors.length === 0 ? (
+          <Text style={styles.noVendorsText}>
+            No vendors found.
+          </Text>
+        ) : (
+          vendors.map((vendor) => (
+            <VendorCard
+              key={vendor.id}
+              vendor={vendor}
+            />
+          ))
+        )}
       </ScrollView>
     </View>
   );
@@ -89,6 +99,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  centerContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   header: {
     padding: 16,
@@ -104,76 +118,9 @@ const styles = StyleSheet.create({
   vendorList: {
     padding: 16,
   },
-  vendorCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    marginBottom: 16,
-    overflow: 'hidden',
-  },
-  vendorCardPressed: {
-    opacity: 0.7,
-  },
-  vendorImage: {
-    width: '100%',
-    height: 200,
-  },
-  vendorContent: {
+  noVendorsText: {
     padding: 16,
-  },
-  vendorHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 8,
-  },
-  vendorName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  vendorType: {
-    fontSize: 14,
     color: '#666666',
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  statusText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  ratingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  rating: {
-    marginLeft: 4,
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  reviews: {
-    marginLeft: 4,
-    fontSize: 14,
-    color: '#666666',
-  },
-  categoriesContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  categoryBadge: {
-    backgroundColor: '#f0f0f0',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  categoryText: {
-    fontSize: 12,
-    color: '#666666',
+    textAlign: 'center',
   },
 });

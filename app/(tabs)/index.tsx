@@ -11,13 +11,8 @@ import { useAuth } from "../../contexts/auth";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../../lib/supabase";
 import * as Location from "expo-location";
-
-interface Vendor {
-  id: string;
-  business_name: string;
-  contact: string;
-  distance_meters: number;
-}
+import { Vendor } from "../../types/database";
+import { VendorCard } from "../../components/VendorCard";
 
 export default function HomeScreen() {
   const { session } = useAuth();
@@ -110,7 +105,6 @@ export default function HomeScreen() {
           event: "*",
           schema: "public",
           table: "vendor_locations",
-          filter: "is_active=eq.true",
         },
         () => {
           // Refresh the vendors list when changes occur
@@ -147,7 +141,7 @@ export default function HomeScreen() {
         <Text style={styles.title}>Welcome, {userData?.name || "User"}!</Text>
       </View>
       <ScrollView
-        style={styles.container}
+        style={styles.vendorList}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -159,32 +153,20 @@ export default function HomeScreen() {
         <Text style={styles.sectionTitle}>
           Nearby Vendors ({vendors.length})
         </Text>
-        <ScrollView style={styles.vendorList}>
-          {isLoading || !location ? (
-            <View style={styles.container}>
-              <ActivityIndicator size="large" color="#007AFF" />
-            </View>
-          ) : vendors.length === 0 ? (
-            <Text style={styles.noVendorsText}>
-              No vendors found within 30km of your location
-            </Text>
-          ) : (
-            vendors.map((vendor) => (
-              <View key={vendor.id} style={styles.vendorCard}>
-                <View style={styles.vendorInfo}>
-                  <Text style={styles.vendorName}>{vendor.business_name}</Text>
-                  <Text style={styles.vendorType}>{vendor.contact}</Text>
-                  <View style={styles.distanceContainer}>
-                    <Ionicons name="location" size={16} color="#007AFF" />
-                    <Text style={styles.distance}>
-                      {(vendor.distance_meters / 1000).toFixed(1)} km away
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            ))
-          )}
-        </ScrollView>
+        {isLoading || !location ? (
+          <View style={styles.centerContent}>
+            <ActivityIndicator size="large" color="#007AFF" />
+          </View>
+        ) : vendors.length === 0 ? (
+          <Text style={styles.noVendorsText}>
+            No vendors found nearby. Try increasing the search radius or check
+            back later.
+          </Text>
+        ) : (
+          vendors.map((vendor) => (
+            <VendorCard key={vendor.id} vendor={vendor} showDistance={true} />
+          ))
+        )}
       </ScrollView>
     </View>
   );
@@ -195,9 +177,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#f5f5f5",
   },
+  centerContent: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
   header: {
     padding: 16,
-    backgroundColor: "#fff",
+    backgroundColor: "#ffffff",
     borderBottomWidth: 1,
     borderBottomColor: "#e5e5e5",
   },
@@ -211,54 +197,16 @@ const styles = StyleSheet.create({
     margin: 16,
   },
   vendorList: {
-    flex: 1,
-  },
-  vendorCard: {
-    backgroundColor: "#fff",
-    marginHorizontal: 16,
-    marginBottom: 16,
-    borderRadius: 8,
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  vendorInfo: {
     padding: 16,
   },
-  vendorName: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 4,
-  },
-  vendorType: {
-    fontSize: 14,
-    color: "#666",
-    marginBottom: 8,
-  },
-  distanceContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  distance: {
-    marginLeft: 4,
-    fontSize: 14,
-    color: "#007AFF",
-  },
   errorText: {
-    textAlign: "center",
+    padding: 16,
     color: "#FF3B30",
-    margin: 16,
+    textAlign: "center",
   },
   noVendorsText: {
+    padding: 16,
+    color: "#666666",
     textAlign: "center",
-    color: "#666",
-    margin: 16,
-    fontSize: 16,
   },
 });

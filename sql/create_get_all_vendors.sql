@@ -1,12 +1,7 @@
 -- Drop both versions of the function (with and without parameters)
-DROP FUNCTION IF EXISTS get_active_vendors();
-DROP FUNCTION IF EXISTS get_active_vendors(double precision, double precision, integer);
+DROP FUNCTION IF EXISTS get_all_vendors();
 
-CREATE OR REPLACE FUNCTION get_active_vendors(
-  user_lat double precision,
-  user_lng double precision,
-  max_distance_meters integer default 30000 -- 30km default
-)
+CREATE OR REPLACE FUNCTION get_all_vendors()
 RETURNS TABLE (
   id uuid,
   business_name text,
@@ -19,16 +14,13 @@ RETURNS TABLE (
 ) AS $$
 BEGIN
   RETURN QUERY
-  WITH active_vendors AS (
-    -- First get the most recent status for each vendor
+  WITH vendor_status AS (
+    -- Get the most recent status for each vendor
     SELECT DISTINCT ON (vl.vendor_id)
       vl.vendor_id,
-      vl.location,
       vl.is_active
     FROM 
       vendor_locations vl
-    WHERE 
-      vl.location IS NOT NULL
     ORDER BY 
       vl.vendor_id,
       vl.updated_at DESC
@@ -68,28 +60,19 @@ BEGIN
     v.id,
     v.business_name,
     v.contact,
-    cast(ST_Distance(
-      av.location::geography,
-      ST_SetSRID(ST_MakePoint(user_lng, user_lat), 4326)::geography
-    ) as integer) as distance_meters,
-    av.is_active,
+    0 as distance_meters, -- Set to 0 since we don't need distance for this view
+    COALESCE(vs.is_active, false) as is_active,
     COALESCE(vr.avg_rating, 0) as avg_rating,
     COALESCE(vr.review_count, 0) as review_count,
     COALESCE(rp.products, '[]'::jsonb) as recent_products
   FROM 
-    active_vendors av
-    INNER JOIN vendors v ON v.id = av.vendor_id
+    vendors v
+    LEFT JOIN vendor_status vs ON v.id = vs.vendor_id
     LEFT JOIN vendor_ratings vr ON v.id = vr.vendor_id
     LEFT JOIN recent_products rp ON v.id = rp.vendor_id
   WHERE 
     v.business_name IS NOT NULL
-    AND ST_DWithin(
-      av.location::geography,
-      ST_SetSRID(ST_MakePoint(user_lng, user_lat), 4326)::geography,
-      max_distance_meters
-    )
   ORDER BY 
-    av.location::geography <-> ST_SetSRID(ST_MakePoint(user_lng, user_lat), 4326)::geography
-  LIMIT 50;
+    v.business_name ASC;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql; 
