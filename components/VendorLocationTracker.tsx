@@ -10,16 +10,38 @@ export function VendorLocationTracker() {
   const [isActive, setIsActive] = useState(false);
   const locationSubscription = useRef<Location.LocationSubscription | null>(null);
   const [permissionStatus, setPermissionStatus] = useState<Location.PermissionStatus | null>(null);
+  const [vendorId, setVendorId] = useState<string | null>(null);
 
   useEffect(() => {
     // Check location permission when component mounts
     checkLocationPermission();
+    fetchVendorId();
     
     // Cleanup subscription when component unmounts
     return () => {
       stopLocationTracking();
     };
   }, []);
+
+  const fetchVendorId = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('vendors')
+        .select('id')
+        .eq('user_id', session?.user.id)
+        .single();
+
+      if (error) throw error;
+      if (data) setVendorId(data.id);
+    } catch (error) {
+      console.error('Error fetching vendor ID:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Error fetching vendor details',
+        text2: 'Please try again later',
+      });
+    }
+  };
 
   const checkLocationPermission = async () => {
     const { status } = await Location.requestForegroundPermissionsAsync();
@@ -36,7 +58,28 @@ export function VendorLocationTracker() {
   };
 
   const startLocationTracking = async () => {
+    if (!vendorId) {
+      Toast.show({
+        type: 'error',
+        text1: 'Vendor ID not found',
+        text2: 'Please try again later',
+      });
+      setIsActive(false);
+      return;
+    }
+
     try {
+      // First, update the active status
+      const { error: statusError } = await supabase
+        .from('vendor_locations')
+        .upsert({
+          vendor_id: vendorId,
+          is_active: true,
+          updated_at: new Date().toISOString(),
+        });
+
+      if (statusError) throw statusError;
+
       // Start location updates
       const subscription = await Location.watchPositionAsync(
         {
@@ -46,13 +89,13 @@ export function VendorLocationTracker() {
         },
         async (location) => {
           try {
-            // Update location in tracking table
+            // Update location in vendor_locations table
             const { error } = await supabase
-              .from('tracking')
+              .from('vendor_locations')
               .upsert({
-                vendor_id: session?.user.id,
-                latitude: location.coords.latitude,
-                longitude: location.coords.longitude,
+                vendor_id: vendorId,
+                location: `POINT(${location.coords.longitude} ${location.coords.latitude})`,
+                is_active: true,
                 updated_at: new Date().toISOString(),
               });
 
@@ -80,10 +123,27 @@ export function VendorLocationTracker() {
     }
   };
 
-  const stopLocationTracking = () => {
+  const stopLocationTracking = async () => {
     if (locationSubscription.current) {
       locationSubscription.current.remove();
       locationSubscription.current = null;
+    }
+
+    if (vendorId) {
+      try {
+        // Update the active status to false
+        const { error } = await supabase
+          .from('vendor_locations')
+          .upsert({
+            vendor_id: vendorId,
+            is_active: false,
+            updated_at: new Date().toISOString(),
+          });
+
+        if (error) throw error;
+      } catch (error) {
+        console.error('Error updating active status:', error);
+      }
     }
   };
 
@@ -97,7 +157,7 @@ export function VendorLocationTracker() {
     if (value) {
       await startLocationTracking();
     } else {
-      stopLocationTracking();
+      await stopLocationTracking();
     }
   };
 
