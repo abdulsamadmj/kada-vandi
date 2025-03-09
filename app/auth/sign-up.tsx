@@ -1,14 +1,16 @@
-import { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TextInput, StyleSheet, Pressable, ActivityIndicator, ScrollView } from 'react-native';
 import { Link, useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/auth';
 import Toast from 'react-native-toast-message';
 
 export default function SignUp() {
+  const [activeTab, setActiveTab] = useState<'customer' | 'vendor'>('customer');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
+  const [contact, setContact] = useState('');
+  const [businessName, setBusinessName] = useState('');
   const [loading, setLoading] = useState(false);
   const { signUp } = useAuth();
   const router = useRouter();
@@ -23,11 +25,28 @@ export default function SignUp() {
       return;
     }
 
+    if (activeTab === 'vendor' && !businessName) {
+      Toast.show({
+        type: 'error',
+        text1: 'Missing business name',
+        text2: 'Please enter your business name',
+      });
+      return;
+    }
+
     try {
       setLoading(true);
-      await signUp(email, password, name, phone);
+      await signUp({
+        email,
+        password,
+        name,
+        role: activeTab,
+        vendorData: activeTab === 'vendor' ? {
+          business_name: businessName,
+          contact,
+        } : undefined,
+      });
       
-      // Show success message
       Toast.show({
         type: 'success',
         text1: 'Account created successfully',
@@ -37,7 +56,6 @@ export default function SignUp() {
 
       // Wait a bit for the user to read the message
       setTimeout(() => {
-        // Navigate to sign-in page
         router.replace('/auth/sign-in');
       }, 2000);
       
@@ -54,8 +72,35 @@ export default function SignUp() {
   };
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       <Text style={styles.title}>Create Account</Text>
+
+      <View style={styles.tabContainer}>
+        <Pressable 
+          style={[
+            styles.tab, 
+            activeTab === 'customer' && styles.activeTab
+          ]}
+          onPress={() => setActiveTab('customer')}
+        >
+          <Text style={[
+            styles.tabText,
+            activeTab === 'customer' && styles.activeTabText
+          ]}>Customer</Text>
+        </Pressable>
+        <Pressable 
+          style={[
+            styles.tab, 
+            activeTab === 'vendor' && styles.activeTab
+          ]}
+          onPress={() => setActiveTab('vendor')}
+        >
+          <Text style={[
+            styles.tabText,
+            activeTab === 'vendor' && styles.activeTabText
+          ]}>Vendor</Text>
+        </Pressable>
+      </View>
 
       <TextInput
         style={styles.input}
@@ -65,14 +110,26 @@ export default function SignUp() {
         editable={!loading}
       />
 
-      <TextInput
-        style={styles.input}
-        placeholder="Phone Number (Optional)"
-        value={phone}
-        onChangeText={setPhone}
-        keyboardType="phone-pad"
-        editable={!loading}
-      />
+      {activeTab === 'vendor' && (
+        <>
+          <TextInput
+            style={styles.input}
+            placeholder="Business Name"
+            value={businessName}
+            onChangeText={setBusinessName}
+            editable={!loading}
+          />
+
+          <TextInput
+            style={styles.input}
+            placeholder="Contact Number"
+            value={contact}
+            onChangeText={setContact}
+            keyboardType="phone-pad"
+            editable={!loading}
+          />
+        </>
+      )}
 
       <TextInput
         style={styles.input}
@@ -119,22 +176,49 @@ export default function SignUp() {
         By signing up, you'll receive a verification email.{'\n'}
         Please verify your email before signing in.
       </Text>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
-    justifyContent: 'center',
     backgroundColor: '#fff',
+  },
+  contentContainer: {
+    padding: 16,
+    paddingTop: 40,
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 24,
     textAlign: 'center',
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    marginBottom: 24,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    overflow: 'hidden',
+  },
+  tab: {
+    flex: 1,
+    padding: 12,
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+  },
+  activeTab: {
+    backgroundColor: '#007AFF',
+  },
+  tabText: {
+    fontSize: 16,
+    color: '#666',
+  },
+  activeTabText: {
+    color: '#fff',
+    fontWeight: 'bold',
   },
   input: {
     borderWidth: 1,

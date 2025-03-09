@@ -1,0 +1,274 @@
+{
+  "version": "1.0",
+  "tables": [
+    {
+      "name": "users",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "default": "uuid_generate_v4()"
+        },
+        { "name": "email", "type": "text", "notNull": true, "unique": true },
+        { "name": "name", "type": "text", "notNull": true },
+        { "name": "role", "type": "text", "notNull": true },
+        { "name": "created_at", "type": "timestamp", "default": "now()" }
+      ]
+    },
+    {
+      "name": "vendors",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "default": "uuid_generate_v4()"
+        },
+        { "name": "user_id", "type": "uuid", "notNull": true },
+        { "name": "business_name", "type": "text", "notNull": true },
+        { "name": "location", "type": "geography(Point,4326)" },
+        { "name": "contact", "type": "text" },
+        { "name": "created_at", "type": "timestamp", "default": "now()" }
+      ],
+      "foreignKeys": [
+        {
+          "column": "user_id",
+          "references": { "table": "users", "column": "id" },
+          "onDelete": "cascade"
+        }
+      ]
+    },
+    {
+      "name": "products",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "default": "uuid_generate_v4()"
+        },
+        { "name": "vendor_id", "type": "uuid", "notNull": true },
+        { "name": "name", "type": "text", "notNull": true },
+        { "name": "description", "type": "text" },
+        { "name": "price", "type": "numeric", "notNull": true },
+        { "name": "inventory_count", "type": "integer", "default": 0 },
+        { "name": "expiration_date", "type": "date" }
+      ],
+      "foreignKeys": [
+        {
+          "column": "vendor_id",
+          "references": { "table": "vendors", "column": "id" },
+          "onDelete": "cascade"
+        }
+      ]
+    },
+    {
+      "name": "orders",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "default": "uuid_generate_v4()"
+        },
+        { "name": "customer_id", "type": "uuid", "notNull": true },
+        { "name": "vendor_id", "type": "uuid", "notNull": true },
+        { "name": "status", "type": "text", "notNull": true },
+        { "name": "total_amount", "type": "numeric" },
+        { "name": "order_date", "type": "timestamp", "default": "now()" },
+        { "name": "delivery_time", "type": "timestamp" }
+      ],
+      "foreignKeys": [
+        {
+          "column": "customer_id",
+          "references": { "table": "users", "column": "id" },
+          "onDelete": "cascade"
+        },
+        {
+          "column": "vendor_id",
+          "references": { "table": "vendors", "column": "id" },
+          "onDelete": "cascade"
+        }
+      ]
+    },
+    {
+      "name": "order_items",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "default": "uuid_generate_v4()"
+        },
+        { "name": "order_id", "type": "uuid", "notNull": true },
+        { "name": "product_id", "type": "uuid", "notNull": true },
+        { "name": "quantity", "type": "integer", "notNull": true },
+        { "name": "price", "type": "numeric", "notNull": true }
+      ],
+      "foreignKeys": [
+        {
+          "column": "order_id",
+          "references": { "table": "orders", "column": "id" },
+          "onDelete": "cascade"
+        },
+        {
+          "column": "product_id",
+          "references": { "table": "products", "column": "id" },
+          "onDelete": "cascade"
+        }
+      ]
+    },
+    {
+      "name": "payments",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "default": "uuid_generate_v4()"
+        },
+        { "name": "order_id", "type": "uuid", "notNull": true },
+        { "name": "payment_method", "type": "text", "notNull": true },
+        { "name": "status", "type": "text", "notNull": true },
+        { "name": "amount", "type": "numeric", "notNull": true },
+        { "name": "payment_date", "type": "timestamp", "default": "now()" }
+      ],
+      "foreignKeys": [
+        {
+          "column": "order_id",
+          "references": { "table": "orders", "column": "id" },
+          "onDelete": "cascade"
+        }
+      ]
+    },
+    {
+      "name": "tracking",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "default": "uuid_generate_v4()"
+        },
+        { "name": "order_id", "type": "uuid", "notNull": true },
+        { "name": "vendor_id", "type": "uuid", "notNull": true },
+        { "name": "latitude", "type": "numeric", "notNull": true },
+        { "name": "longitude", "type": "numeric", "notNull": true },
+        { "name": "eta", "type": "timestamp" }
+      ],
+      "foreignKeys": [
+        {
+          "column": "order_id",
+          "references": { "table": "orders", "column": "id" },
+          "onDelete": "cascade"
+        },
+        {
+          "column": "vendor_id",
+          "references": { "table": "vendors", "column": "id" },
+          "onDelete": "cascade"
+        }
+      ]
+    },
+    {
+      "name": "reviews",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "default": "uuid_generate_v4()"
+        },
+        { "name": "order_id", "type": "uuid", "notNull": true },
+        { "name": "customer_id", "type": "uuid", "notNull": true },
+        { "name": "vendor_id", "type": "uuid", "notNull": true },
+        { "name": "rating", "type": "integer", "notNull": true },
+        { "name": "comment", "type": "text" },
+        { "name": "created_at", "type": "timestamp", "default": "now()" }
+      ],
+      "foreignKeys": [
+        {
+          "column": "order_id",
+          "references": { "table": "orders", "column": "id" },
+          "onDelete": "cascade"
+        },
+        {
+          "column": "customer_id",
+          "references": { "table": "users", "column": "id" },
+          "onDelete": "cascade"
+        },
+        {
+          "column": "vendor_id",
+          "references": { "table": "vendors", "column": "id" },
+          "onDelete": "cascade"
+        }
+      ]
+    },
+    {
+      "name": "alerts",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "default": "uuid_generate_v4()"
+        },
+        { "name": "customer_id", "type": "uuid", "notNull": true },
+        { "name": "alert_type", "type": "text", "notNull": true },
+        { "name": "message", "type": "text" },
+        { "name": "is_read", "type": "boolean", "default": false },
+        { "name": "created_at", "type": "timestamp", "default": "now()" }
+      ],
+      "foreignKeys": [
+        {
+          "column": "customer_id",
+          "references": { "table": "users", "column": "id" },
+          "onDelete": "cascade"
+        }
+      ]
+    },
+    {
+      "name": "preferences",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "default": "uuid_generate_v4()"
+        },
+        { "name": "customer_id", "type": "uuid", "notNull": true },
+        { "name": "entity_type", "type": "text", "notNull": true },
+        { "name": "entity_id", "type": "uuid", "notNull": true },
+        { "name": "created_at", "type": "timestamp", "default": "now()" }
+      ],
+      "foreignKeys": [
+        {
+          "column": "customer_id",
+          "references": { "table": "users", "column": "id" },
+          "onDelete": "cascade"
+        }
+      ]
+    },
+    {
+      "name": "demand_predictions",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "default": "uuid_generate_v4()"
+        },
+        { "name": "vendor_id", "type": "uuid", "notNull": true },
+        { "name": "predicted_demand", "type": "numeric" },
+        { "name": "prediction_date", "type": "timestamp", "default": "now()" }
+      ],
+      "foreignKeys": [
+        {
+          "column": "vendor_id",
+          "references": { "table": "vendors", "column": "id" },
+          "onDelete": "cascade"
+        }
+      ]
+    }
+  ]
+}

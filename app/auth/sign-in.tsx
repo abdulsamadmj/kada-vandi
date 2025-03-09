@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { View, Text, TextInput, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
 import { Link, useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/auth';
 import Toast from 'react-native-toast-message';
+import { supabase } from '../../lib/supabase';
 
 interface InventoryItem {
   id: string;
@@ -34,10 +35,32 @@ export default function SignIn() {
     try {
       setLoading(true);
       await signIn(email, password);
-      // No need to manually navigate - the root layout will handle this
+
+      // Fetch user role from the users table
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('role')
+        .eq('email', email)
+        .single();
+
+      if (userError) throw userError;
+
+      const role = userData?.role;
+      const isVendor = role === 'vendor';
+
+      if ((isVendor && activeTab !== 'vendor') || (!isVendor && activeTab === 'vendor')) {
+        Toast.show({
+          type: 'error',
+          text1: 'Invalid account type',
+          text2: `Please sign in as a ${isVendor ? 'vendor' : 'customer'}`,
+        });
+        await supabase.auth.signOut();
+        return;
+      }
+
       Toast.show({
         type: 'success',
-        text1: `Welcome back${activeTab === 'vendor' ? ' Vendor' : ''}!`,
+        text1: `Welcome back${isVendor ? ' Vendor' : ''}!`,
       });
     } catch (err) {
       console.error('Sign in error:', err);
@@ -64,7 +87,7 @@ export default function SignIn() {
           <Text style={[
             styles.tabText,
             activeTab === 'user' && styles.activeTabText
-          ]}>User</Text>
+          ]}>Customer</Text>
         </Pressable>
         <Pressable 
           style={[
