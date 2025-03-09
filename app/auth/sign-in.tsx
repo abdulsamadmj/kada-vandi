@@ -5,20 +5,10 @@ import { useAuth } from '../../contexts/auth';
 import Toast from 'react-native-toast-message';
 import { supabase } from '../../lib/supabase';
 
-interface InventoryItem {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-  quantity: number;
-  category: string;
-}
-
 export default function SignIn() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState('user');
   const { signIn } = useAuth();
   const router = useRouter();
 
@@ -39,28 +29,17 @@ export default function SignIn() {
       // Fetch user role from the users table
       const { data: userData, error: userError } = await supabase
         .from('users')
-        .select('role')
+        .select('role, name')
         .eq('email', email)
         .single();
 
       if (userError) throw userError;
 
-      const role = userData?.role;
-      const isVendor = role === 'vendor';
-
-      if ((isVendor && activeTab !== 'vendor') || (!isVendor && activeTab === 'vendor')) {
-        Toast.show({
-          type: 'error',
-          text1: 'Invalid account type',
-          text2: `Please sign in as a ${isVendor ? 'vendor' : 'customer'}`,
-        });
-        await supabase.auth.signOut();
-        return;
-      }
-
+      const isVendor = userData?.role === 'vendor';
+      
       Toast.show({
         type: 'success',
-        text1: `Welcome back${isVendor ? ' Vendor' : ''}!`,
+        text1: `Welcome back${userData?.name ? `, ${userData.name}` : ''}!`,
       });
     } catch (err) {
       console.error('Sign in error:', err);
@@ -76,36 +55,7 @@ export default function SignIn() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.tabContainer}>
-        <Pressable 
-          style={[
-            styles.tab, 
-            activeTab === 'user' && styles.activeTab
-          ]}
-          onPress={() => setActiveTab('user')}
-        >
-          <Text style={[
-            styles.tabText,
-            activeTab === 'user' && styles.activeTabText
-          ]}>Customer</Text>
-        </Pressable>
-        <Pressable 
-          style={[
-            styles.tab, 
-            activeTab === 'vendor' && styles.activeTab
-          ]}
-          onPress={() => setActiveTab('vendor')}
-        >
-          <Text style={[
-            styles.tabText,
-            activeTab === 'vendor' && styles.activeTabText
-          ]}>Vendor</Text>
-        </Pressable>
-      </View>
-
-      <Text style={styles.title}>
-        {activeTab === 'user' ? 'Welcome Back' : 'Vendor Sign In'}
-      </Text>
+      <Text style={styles.title}>Welcome Back</Text>
 
       <TextInput
         style={styles.input}
@@ -197,30 +147,5 @@ const styles = StyleSheet.create({
   },
   linkTextDisabled: {
     color: '#ccc',
-  },
-  tabContainer: {
-    flexDirection: 'row',
-    marginBottom: 24,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    overflow: 'hidden',
-  },
-  tab: {
-    flex: 1,
-    padding: 12,
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-  },
-  activeTab: {
-    backgroundColor: '#007AFF',
-  },
-  tabText: {
-    fontSize: 16,
-    color: '#666',
-  },
-  activeTabText: {
-    color: '#fff',
-    fontWeight: 'bold',
   },
 });
