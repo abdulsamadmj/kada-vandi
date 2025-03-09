@@ -2,23 +2,29 @@ import React from 'react';
 import { View, Text, StyleSheet, Image, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Vendor } from '../types/database';
+import { useRouter } from 'expo-router';
 
 const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1565123409695-7b5ef63a2efb?w=500';
 
 interface VendorCardProps {
   vendor: Vendor;
   showDistance?: boolean;
-  onPress?: () => void;
 }
 
-export function VendorCard({ vendor, showDistance = false, onPress }: VendorCardProps) {
+export function VendorCard({ vendor, showDistance = false }: VendorCardProps) {
+  const router = useRouter();
+
+  const handlePress = () => {
+    router.push(`/vendor/${vendor.id}`);
+  };
+
   return (
     <Pressable
       style={({ pressed }) => [
         styles.vendorCard,
         pressed && styles.vendorCardPressed,
       ]}
-      onPress={onPress}
+      onPress={handlePress}
     >
       <Image 
         source={{ uri: FALLBACK_IMAGE }} 
@@ -44,7 +50,7 @@ export function VendorCard({ vendor, showDistance = false, onPress }: VendorCard
           <Ionicons name="star" size={16} color="#FFD700" />
           <Text style={styles.rating}>{vendor.avg_rating.toFixed(1)}</Text>
           <Text style={styles.reviews}>({vendor.review_count} reviews)</Text>
-          {showDistance && (
+          {showDistance && vendor.distance_meters > 0 && (
             <>
               <Text style={styles.separator}>•</Text>
               <Ionicons name="location" size={16} color="#007AFF" />
