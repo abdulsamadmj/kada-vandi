@@ -8,9 +8,12 @@ import TabBarBackground from "@/components/ui/TabBarBackground";
 import { Colors } from "@/constants/Colors";
 import { useColorScheme } from "@/hooks/useColorScheme";
 import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from "@/contexts/auth";
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+  const { session } = useAuth();
+  const isVendor = session?.user?.user_metadata.role === "vendor";
 
   return (
     <Tabs
@@ -36,6 +39,17 @@ export default function TabLayout() {
             <Ionicons name="compass" size={size} color={color} />
           ),
         }}
+        redirect={isVendor}
+      />
+      <Tabs.Screen
+        name="dashboard"
+        options={{
+          title: "Dashboard",
+          tabBarIcon: ({ size, color }) => (
+            <Ionicons name="compass" size={size} color={color} />
+          ),
+        }}
+        redirect={!isVendor}
       />
       <Tabs.Screen
         name="orders"
@@ -54,6 +68,7 @@ export default function TabLayout() {
             <Ionicons name="business" size={size} color={color} />
           ),
         }}
+        redirect={isVendor}
       />
       <Tabs.Screen
         name="inventory"
@@ -63,6 +78,7 @@ export default function TabLayout() {
             <Ionicons name="cube" size={size} color={color} />
           ),
         }}
+        redirect={!isVendor}
       />
       <Tabs.Screen
         name="profile"
