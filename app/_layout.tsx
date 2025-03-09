@@ -83,61 +83,61 @@ export default function RootLayout() {
     }
   }, [appIsReady, loaded]);
 
-  useEffect(() => {
-    // Handle deep linking
-    const handleDeepLink = async ({ url }: { url: string }) => {
-      if (url.includes('type=recovery') || url.includes('type=signup')) {
-        try {
-          const { data: { session }, error } = await supabase.auth.verifyOtp({
-            type: url.includes('type=recovery') ? 'recovery' : 'signup',
-            token: url.split('token=')[1].split('&')[0],
-          });
+  // useEffect(() => {
+  //   // Handle deep linking
+  //   const handleDeepLink = async ({ url }: { url: string }) => {
+  //     if (url.includes('type=recovery') || url.includes('type=signup')) {
+  //       try {
+  //         const { data: { session }, error } = await supabase.auth.verifyOtp({
+  //           type: url.includes('type=recovery') ? 'recovery' : 'signup',
+  //           token: url.split('token=')[1].split('&')[0],
+  //         });
 
-          if (error) throw error;
+  //         if (error) throw error;
 
-          // Always redirect to sign-in page with a success message
-          Toast.show({
-            type: 'success',
-            text1: 'Email verified successfully',
-            text2: 'Please sign in to continue',
-            visibilityTime: 4000,
-          });
+  //         // Always redirect to sign-in page with a success message
+  //         Toast.show({
+  //           type: 'success',
+  //           text1: 'Email verified successfully',
+  //           text2: 'Please sign in to continue',
+  //           visibilityTime: 4000,
+  //         });
           
-          // If there was a session, sign out to ensure clean login
-          if (session) {
-            await supabase.auth.signOut();
-          }
+  //         // If there was a session, sign out to ensure clean login
+  //         if (session) {
+  //           await supabase.auth.signOut();
+  //         }
           
-          // Redirect to sign-in page
-          router.replace('/auth/sign-in');
+  //         // Redirect to sign-in page
+  //         router.replace('/auth/sign-in');
           
-        } catch (error) {
-          console.error('Verification error:', error);
-          Toast.show({
-            type: 'error',
-            text1: 'Verification failed',
-            text2: error instanceof Error ? error.message : 'Please try again',
-            visibilityTime: 4000,
-          });
-          router.replace('/auth/sign-in');
-        }
-      }
-    };
+  //       } catch (error) {
+  //         console.error('Verification error:', error);
+  //         Toast.show({
+  //           type: 'error',
+  //           text1: 'Verification failed',
+  //           text2: error instanceof Error ? error.message : 'Please try again',
+  //           visibilityTime: 4000,
+  //         });
+  //         router.replace('/auth/sign-in');
+  //       }
+  //     }
+  //   };
 
-    // Add event listener for deep links
-    const subscription = Linking.addEventListener('url', handleDeepLink);
+  //   // Add event listener for deep links
+  //   const subscription = Linking.addEventListener('url', handleDeepLink);
 
-    // Handle initial URL
-    Linking.getInitialURL().then((url) => {
-      if (url) {
-        handleDeepLink({ url });
-      }
-    });
+  //   // Handle initial URL
+  //   Linking.getInitialURL().then((url) => {
+  //     if (url) {
+  //       handleDeepLink({ url });
+  //     }
+  //   });
 
-    return () => {
-      subscription.remove();
-    };
-  }, []);
+  //   return () => {
+  //     subscription.remove();
+  //   };
+  // }, []);
 
   if (!appIsReady || !loaded) {
     return null;
