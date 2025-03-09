@@ -10,25 +10,56 @@ import {
 import { useAuth } from "../../contexts/auth";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../../lib/supabase";
+import * as Location from "expo-location";
 
 interface Vendor {
   id: string;
   business_name: string;
   contact: string;
+  distance_meters: number;
 }
 
 export default function HomeScreen() {
   const { session } = useAuth();
   const userData = session?.user?.user_metadata;
+  const [location, setLocation] = useState<Location.LocationObject | null>(
+    null
+  );
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Fetch vendors
+  // Request location permission and get current location
+  useEffect(() => {
+    (async () => {
+      try {
+        let { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== "granted") {
+          setErrorMsg("Permission to access location was denied");
+          setIsLoading(false);
+          return;
+        }
+
+        let location = await Location.getCurrentPositionAsync({});
+        setLocation(location);
+      } catch (error) {
+        setErrorMsg("Error getting location");
+        setIsLoading(false);
+      }
+    })();
+  }, []);
+
+  // Fetch vendors when location changes
   const fetchVendors = async () => {
+    if (!location) return;
+
     try {
-      const { data, error } = await supabase.rpc("get_active_vendors");
+      const { data, error } = await supabase.rpc("get_active_vendors", {
+        user_lat: location.coords.latitude,
+        user_lng: location.coords.longitude,
+        max_distance_meters: 30000, // 30km
+      });
 
       if (error) {
         console.error("Error fetching vendors:", error);
@@ -48,24 +79,37 @@ export default function HomeScreen() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await fetchVendors();
+    try {
+      // Get fresh location data
+      const newLocation = await Location.getCurrentPositionAsync({});
+      setLocation(newLocation);
+    } catch (error) {
+      console.error("Refresh error:", error);
+      setErrorMsg("Error refreshing data");
+      setRefreshing(false);
+    }
   }, []);
 
-  // Initial fetch
+  // Fetch vendors when location changes
   useEffect(() => {
-    fetchVendors();
-  }, []);
+    if (location) {
+      fetchVendors();
+    }
+  }, [location]);
 
   // Subscribe to real-time updates
   useEffect(() => {
+    if (!location) return;
+
     const channel = supabase
       .channel("vendor_locations")
       .on(
         "postgres_changes",
         {
-          event: "UPDATE",
+          event: "*",
           schema: "public",
           table: "vendor_locations",
+          filter: "is_active=eq.true",
         },
         () => {
           // Refresh the vendors list when changes occur
@@ -77,7 +121,7 @@ export default function HomeScreen() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [location]);
 
   if (errorMsg) {
     return (
@@ -112,15 +156,17 @@ export default function HomeScreen() {
         }
       >
         <Text style={styles.sectionTitle}>
-          Active Vendors ({vendors.length})
+          Nearby Vendors ({vendors.length})
         </Text>
         <ScrollView style={styles.vendorList}>
-          {isLoading ? (
+          {isLoading || !location ? (
             <View style={styles.container}>
               <ActivityIndicator size="large" color="#007AFF" />
             </View>
           ) : vendors.length === 0 ? (
-            <Text style={styles.noVendorsText}>No active vendors found</Text>
+            <Text style={styles.noVendorsText}>
+              No vendors found within 30km of your location
+            </Text>
           ) : (
             vendors.map((vendor) => (
               <View key={vendor.id} style={styles.vendorCard}>
@@ -128,8 +174,10 @@ export default function HomeScreen() {
                   <Text style={styles.vendorName}>{vendor.business_name}</Text>
                   <Text style={styles.vendorType}>{vendor.contact}</Text>
                   <View style={styles.distanceContainer}>
-                    <Ionicons name="business" size={16} color="#007AFF" />
-                    <Text style={styles.distance}>Active Vendor</Text>
+                    <Ionicons name="location" size={16} color="#007AFF" />
+                    <Text style={styles.distance}>
+                      {(vendor.distance_meters / 1000).toFixed(1)} km away
+                    </Text>
                   </View>
                 </View>
               </View>
