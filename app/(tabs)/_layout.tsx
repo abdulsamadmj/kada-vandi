@@ -1,6 +1,6 @@
 import { Tabs } from "expo-router";
 import React from "react";
-import { Platform } from "react-native";
+import { Platform, View, Text, StyleSheet } from "react-native";
 
 import { HapticTab } from "@/components/HapticTab";
 import { IconSymbol } from "@/components/ui/IconSymbol";
@@ -9,6 +9,25 @@ import { Colors } from "@/constants/Colors";
 import { useColorScheme } from "@/hooks/useColorScheme";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/contexts/auth";
+import { useCart } from "@/contexts/cart";
+
+function CartTabIcon({ size, color }: { size: number; color: string }) {
+  const { getItemCount } = useCart();
+  const itemCount = getItemCount();
+
+  return (
+    <View style={styles.iconContainer}>
+      <Ionicons name="cart" size={size} color={color} />
+      {itemCount > 0 && (
+        <View style={styles.badge}>
+          <Text style={styles.badgeText}>
+            {itemCount > 99 ? '99+' : itemCount}
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+}
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
@@ -85,7 +104,7 @@ export default function TabLayout() {
         options={{
           title: "Cart",
           tabBarIcon: ({ size, color }) => (
-            <Ionicons name="cart" size={size} color={color} />
+            <CartTabIcon size={size} color={color} />
           ),
         }}
       />
@@ -107,3 +126,28 @@ export default function TabLayout() {
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  iconContainer: {
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+  },
+  badge: {
+    position: 'absolute',
+    right: -8,
+    top: -6,
+    backgroundColor: '#FF3B30',
+    borderRadius: 10,
+    minWidth: 16,
+    height: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  badgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+});
