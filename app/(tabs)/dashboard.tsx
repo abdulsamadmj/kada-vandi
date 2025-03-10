@@ -5,57 +5,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { VendorLocationTracker } from '../../components/VendorLocationTracker';
 import { supabase } from '../../lib/supabase';
 import Toast from 'react-native-toast-message';
-
-interface Order {
-  id: string;
-  status: string;
-  total_amount: number;
-  order_date: string;
-  vendor_name?: string;
-  customer_name?: string;
-  items: {
-    name: string;
-    quantity: number;
-  }[];
-}
-
-interface SupabaseOrder {
-  id: string;
-  status: string;
-  total_amount: number;
-  order_date: string;
-  vendors: {
-    business_name: string;
-  } | null;
-  users: {
-    name: string;
-  } | null;
-  order_items: Array<{
-    quantity: number;
-    products: {
-      name: string;
-    };
-  }>;
-}
-
-type SupabaseQueryResult = {
-  id: string;
-  status: string;
-  total_amount: number;
-  order_date: string;
-  vendors: {
-    business_name: string;
-  } | null;
-  users: {
-    name: string;
-  } | null;
-  order_items: Array<{
-    quantity: number;
-    products: {
-      name: string;
-    };
-  }>;
-}
+import OrderCard, { Order, getStatusColor } from '../components/OrderCard';
+import { SupabaseOrder, SupabaseOrderItem } from '../types/supabase';
 
 interface Vendor {
   id: string;
@@ -74,6 +25,32 @@ interface OrderItemForUpdate {
   quantity: number;
   name: string;
 }
+
+// Mock data for vendors - replace with real data later
+const mockVendors: Vendor[] = [
+  {
+    id: '1',
+    name: 'Kada Vandi 1',
+    type: 'Street Food',
+    rating: 4.5,
+    image: 'https://picsum.photos/200',
+    location: {
+      latitude: 0,
+      longitude: 0,
+    },
+  },
+  {
+    id: '2',
+    name: 'Kada Vandi 2',
+    type: 'Snacks',
+    rating: 4.2,
+    image: 'https://picsum.photos/200',
+    location: {
+      latitude: 0,
+      longitude: 0,
+    },
+  },
+];
 
 export default function DashboardScreen() {
   const { session } = useAuth();
@@ -136,15 +113,7 @@ export default function DashboardScreen() {
         if (orderError) throw orderError;
 
         // Format items for inventory update
-        const items: OrderItemForUpdate[] = (orderData as unknown as { 
-          order_items: Array<{
-            quantity: number;
-            product_id: string;
-            products: {
-              name: string;
-            };
-          }>;
-        }).order_items.map(item => ({
+        const items: OrderItemForUpdate[] = (orderData.order_items as SupabaseOrderItem[]).map(item => ({
           product_id: item.product_id,
           quantity: item.quantity,
           name: item.products.name,
@@ -185,6 +154,7 @@ export default function DashboardScreen() {
           status,
           total_amount,
           order_date,
+          delivery_address,
           vendors (
             business_name
           ),
@@ -224,14 +194,15 @@ export default function DashboardScreen() {
         return;
       }
 
-      const formattedOrders: Order[] = (data as unknown as SupabaseQueryResult[]).map(order => ({
+      const formattedOrders: Order[] = (data as SupabaseOrder[]).map(order => ({
         id: order.id,
         status: order.status,
         total_amount: order.total_amount,
         order_date: order.order_date,
         vendor_name: order.vendors?.business_name,
         customer_name: order.users?.name,
-        items: order.order_items.map(item => ({
+        delivery_address: order.delivery_address,
+        items: order.order_items.map((item: SupabaseOrderItem) => ({
           name: item.products.name,
           quantity: item.quantity,
         })),
@@ -300,63 +271,13 @@ export default function DashboardScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Recent Orders</Text>
             {recentOrders.map((order) => (
-              <View key={order.id} style={styles.orderCard}>
-                <View style={styles.orderHeader}>
-                  <Text style={styles.orderTitle}>
-                    {isVendor ? order.customer_name : order.vendor_name}
-                  </Text>
-                  <View style={[
-                    styles.statusBadge,
-                    { backgroundColor: getStatusColor(order.status) }
-                  ]}>
-                    <Text style={styles.statusText}>{order.status}</Text>
-                  </View>
-                </View>
-
-                <View style={styles.orderItems}>
-                  {order.items.map((item, index) => (
-                    <Text key={index} style={styles.itemText}>
-                      • {item.quantity}x {item.name}
-                    </Text>
-                  ))}
-                </View>
-
-                <View style={styles.orderFooter}>
-                  <Text style={styles.totalText}>
-                    Total: ₹{order.total_amount?.toLocaleString()}
-                  </Text>
-                  <Text style={styles.dateText}>
-                    {new Date(order.order_date).toLocaleString()}
-                  </Text>
-                </View>
-
-                {isVendor && order.status === 'PLACED' && (
-                  <View style={styles.actions}>
-                    <View style={styles.actionButtons}>
-                      <Pressable
-                        onPress={() => handleOrderAction(order.id, 'ACCEPTED')}
-                        style={({ pressed }) => [
-                          styles.actionButton,
-                          styles.acceptButton,
-                          pressed && styles.actionButtonPressed,
-                        ]}
-                      >
-                        <Text style={styles.actionButtonText}>Accept</Text>
-                      </Pressable>
-                      <Pressable
-                        onPress={() => handleOrderAction(order.id, 'REJECTED')}
-                        style={({ pressed }) => [
-                          styles.actionButton,
-                          styles.rejectButton,
-                          pressed && styles.actionButtonPressed,
-                        ]}
-                      >
-                        <Text style={styles.actionButtonText}>Reject</Text>
-                      </Pressable>
-                    </View>
-                  </View>
-                )}
-              </View>
+              <OrderCard
+                key={order.id}
+                order={order}
+                isVendor={isVendor}
+                onAccept={(orderId: string) => handleOrderAction(orderId, 'ACCEPTED')}
+                onReject={(orderId: string) => handleOrderAction(orderId, 'REJECTED')}
+              />
             ))}
           </View>
         )}
@@ -365,7 +286,7 @@ export default function DashboardScreen() {
           <>
             <Text style={styles.sectionTitle}>Nearby Vendors</Text>
             <ScrollView style={styles.vendorList}>
-              {mockVendors.map((vendor) => (
+              {mockVendors.map((vendor: Vendor) => (
                 <View key={vendor.id} style={styles.vendorCard}>
                   <Image
                     source={{ uri: vendor.image }}
@@ -387,25 +308,6 @@ export default function DashboardScreen() {
       </ScrollView>
     </View>
   );
-}
-
-function getStatusColor(status: string): string {
-  switch (status) {
-    case 'PLACED':
-      return '#FF9500';
-    case 'ACCEPTED':
-      return '#007AFF';
-    case 'PREPARING':
-      return '#5856D6';
-    case 'OUT_FOR_DELIVERY':
-      return '#FF2D55';
-    case 'DELIVERED':
-      return '#34C759';
-    case 'REJECTED':
-      return '#FF3B30';
-    default:
-      return '#666666';
-  }
 }
 
 const styles = StyleSheet.create({
@@ -476,93 +378,5 @@ const styles = StyleSheet.create({
     marginLeft: 4,
     fontSize: 14,
     color: '#666',
-  },
-  orderCard: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  orderHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  orderTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  statusText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  orderItems: {
-    marginBottom: 12,
-  },
-  itemText: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 4,
-  },
-  orderFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: '#e5e5e5',
-    paddingTop: 12,
-  },
-  totalText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  dateText: {
-    color: '#666',
-    fontSize: 12,
-  },
-  actions: {
-    marginTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#e5e5e5',
-    paddingTop: 12,
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  actionButton: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  acceptButton: {
-    backgroundColor: '#34C759',
-  },
-  rejectButton: {
-    backgroundColor: '#FF3B30',
-  },
-  actionButtonPressed: {
-    opacity: 0.7,
-  },
-  actionButtonText: {
-    color: '#ffffff',
-    fontWeight: 'bold',
   },
 });
