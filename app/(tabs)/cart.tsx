@@ -1,7 +1,8 @@
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useCart } from '../../contexts/cart';
-import { useState, useEffect } from 'react';
+import { useAuth } from '../../contexts/auth';
+import { useState, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
 import Toast from 'react-native-toast-message';
 import { useRouter } from 'expo-router';
@@ -14,40 +15,59 @@ interface VendorInfo {
 }
 
 export default function CartScreen() {
-  const { 
-    state: cartState, 
-    removeItem, 
-    updateQuantity, 
-    clearCart,
-    getTotalAmount 
-  } = useCart();
-  const [vendor, setVendor] = useState<VendorInfo | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const { state: cartState, removeItem, updateQuantity, clearCart, getTotalAmount } = useCart();
+  const { session } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const router = useRouter();
 
-  useEffect(() => {
-    if (cartState.vendorId) {
-      fetchVendorInfo();
-    } else {
-      setIsLoading(false);
-    }
-  }, [cartState.vendorId]);
-
-  const fetchVendorInfo = async () => {
+  const handlePlaceOrder = async () => {
     try {
-      const { data, error } = await supabase
-        .from('vendors')
-        .select('id, name, is_active')
-        .eq('id', cartState.vendorId)
+      setIsLoading(true);
+
+      // Create the order
+      const { data: order, error: orderError } = await supabase
+        .from('orders')
+        .insert({
+          customer_id: session?.user.id,
+          vendor_id: cartState.vendorId,
+          status: 'PLACED',
+          total_amount: getTotalAmount(),
+        })
+        .select()
         .single();
 
-      if (error) throw error;
-      setVendor(data);
+      if (orderError) throw orderError;
+
+      // Create order items
+      const orderItems = Object.values(cartState.items).map(item => ({
+        order_id: order.id,
+        product_id: item.id,
+        quantity: item.quantity,
+        price: item.price,
+      }));
+
+      const { error: itemsError } = await supabase
+        .from('order_items')
+        .insert(orderItems);
+
+      if (itemsError) throw itemsError;
+
+      // Clear the cart
+      clearCart();
+
+      Toast.show({
+        type: 'success',
+        text1: 'Order placed successfully',
+      });
+
+      // Navigate to orders page
+      router.push('/(tabs)/orders');
     } catch (error) {
       Toast.show({
         type: 'error',
-        text1: 'Error fetching vendor info',
+        text1: 'Failed to place order',
         text2: error instanceof Error ? error.message : 'Please try again later',
       });
     } finally {
@@ -86,27 +106,6 @@ export default function CartScreen() {
     });
   };
 
-  const handleCheckout = () => {
-    if (!vendor?.is_active) {
-      Toast.show({
-        type: 'error',
-        text1: 'Vendor is currently closed',
-        text2: 'Please try again later',
-      });
-      return;
-    }
-    // Navigate to checkout
-    router.push('/checkout');
-  };
-
-  if (isLoading) {
-    return (
-      <View style={[styles.container, styles.centerContent]}>
-        <ActivityIndicator size="large" color="#007AFF" />
-      </View>
-    );
-  }
-
   if (Object.keys(cartState.items).length === 0) {
     return (
       <View style={[styles.container, styles.centerContent]}>
@@ -136,20 +135,6 @@ export default function CartScreen() {
           <Text style={styles.clearButtonText}>Clear Cart</Text>
         </Pressable>
       </View>
-
-      {vendor && (
-        <View style={styles.vendorInfo}>
-          <Text style={styles.vendorName}>{vendor.name}</Text>
-          <View style={[
-            styles.vendorStatus,
-            { backgroundColor: vendor.is_active ? '#4CAF50' : '#FF3B30' }
-          ]}>
-            <Text style={styles.vendorStatusText}>
-              {vendor.is_active ? 'Open' : 'Closed'}
-            </Text>
-          </View>
-        </View>
-      )}
 
       <ScrollView style={styles.content}>
         {Object.values(cartState.items).map((item) => (
@@ -194,15 +179,33 @@ export default function CartScreen() {
         </View>
 
         <Pressable
-          onPress={handleCheckout}
+          onPress={() => setShowConfirm(true)}
+          disabled={isLoading}
           style={({ pressed }) => [
-            styles.checkoutButton,
-            pressed && styles.checkoutButtonPressed,
+            styles.placeOrderButton,
+            pressed && styles.placeOrderButtonPressed,
+            isLoading && styles.placeOrderButtonDisabled,
           ]}
         >
-          <Text style={styles.checkoutButtonText}>Checkout</Text>
+          {isLoading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.placeOrderButtonText}>Place Order (Cash on Delivery)</Text>
+          )}
         </Pressable>
       </View>
+
+      <AlertDialog
+        isVisible={showConfirm}
+        title="Confirm Order"
+        message={`Are you sure you want to place this order?\n\nTotal Amount: ₦${getTotalAmount().toLocaleString()}\nPayment Method: Cash on Delivery`}
+        confirmText="Place Order"
+        onConfirm={() => {
+          setShowConfirm(false);
+          handlePlaceOrder();
+        }}
+        onCancel={() => setShowConfirm(false)}
+      />
 
       <AlertDialog
         isVisible={showClearConfirm}
@@ -249,29 +252,6 @@ const styles = StyleSheet.create({
   },
   clearButtonText: {
     color: '#FF3B30',
-    fontWeight: 'bold',
-  },
-  vendorInfo: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e5e5',
-  },
-  vendorName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  vendorStatus: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  vendorStatusText: {
-    color: '#ffffff',
-    fontSize: 12,
     fontWeight: 'bold',
   },
   content: {
@@ -331,17 +311,20 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
   },
-  checkoutButton: {
+  placeOrderButton: {
     backgroundColor: '#007AFF',
     padding: 16,
     borderRadius: 8,
     alignItems: 'center',
   },
-  checkoutButtonPressed: {
+  placeOrderButtonPressed: {
     opacity: 0.7,
   },
-  checkoutButtonText: {
-    color: '#ffffff',
+  placeOrderButtonDisabled: {
+    opacity: 0.5,
+  },
+  placeOrderButtonText: {
+    color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
   },
