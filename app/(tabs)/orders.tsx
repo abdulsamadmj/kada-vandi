@@ -1,4 +1,5 @@
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, RefreshControl } from 'react-native';
+import React from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, RefreshControl, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/auth';
 import { useState, useEffect, useCallback } from 'react';
@@ -11,6 +12,7 @@ const ORDER_STATUSES = [
   'PREPARING',
   'OUT_FOR_DELIVERY',
   'DELIVERED',
+  'REJECTED',
 ] as const;
 
 type OrderStatus = typeof ORDER_STATUSES[number];
@@ -29,6 +31,26 @@ interface Order {
   vendor_name?: string;
   customer_name?: string;
   items: OrderItem[];
+}
+
+interface SupabaseQueryResult {
+  id: string;
+  status: OrderStatus;
+  total_amount: number;
+  order_date: string;
+  vendors: {
+    business_name: string;
+  } | null;
+  users: {
+    name: string;
+  } | null;
+  order_items: Array<{
+    quantity: number;
+    price: number;
+    products: {
+      name: string;
+    };
+  }>;
 }
 
 export default function OrdersScreen() {
@@ -63,26 +85,25 @@ export default function OrdersScreen() {
         `)
         .order('order_date', { ascending: false });
 
-      if (isVendor) {
-        // Get vendor ID first
-        const { data: vendorData, error: vendorError } = await supabase
+      if (isVendor && session?.user?.id) {
+        const { data: vendorData } = await supabase
           .from('vendors')
           .select('id')
-          .eq('user_id', session?.user.id)
+          .eq('user_id', session.user.id)
           .single();
 
-        if (vendorError) throw vendorError;
-        
-        query = query.eq('vendor_id', vendorData.id);
-      } else {
-        query = query.eq('customer_id', session?.user.id);
+        if (vendorData?.id) {
+          query = query.eq('vendor_id', vendorData.id);
+        }
+      } else if (session?.user?.id) {
+        query = query.eq('customer_id', session.user.id);
       }
 
       const { data, error } = await query;
 
       if (error) throw error;
 
-      const formattedOrders: Order[] = data.map(order => ({
+      const formattedOrders: Order[] = (data as unknown as SupabaseQueryResult[]).map(order => ({
         id: order.id,
         status: order.status,
         total_amount: order.total_amount,
@@ -107,6 +128,49 @@ export default function OrdersScreen() {
       setIsLoading(false);
       setIsRefreshing(false);
     }
+  };
+
+  const handleOrderAction = async (orderId: string, action: 'ACCEPTED' | 'REJECTED') => {
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ status: action })
+        .eq('id', orderId);
+
+      if (error) throw error;
+
+      Toast.show({
+        type: 'success',
+        text1: `Order ${action.toLowerCase()}`,
+      });
+
+      fetchOrders();
+    } catch (error) {
+      Toast.show({
+        type: 'error',
+        text1: `Failed to ${action.toLowerCase()} order`,
+        text2: error instanceof Error ? error.message : 'Please try again later',
+      });
+    }
+  };
+
+  const confirmReject = (orderId: string) => {
+    Alert.alert(
+      'Reject Order',
+      'Are you sure you want to reject this order?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Reject',
+          onPress: () => handleOrderAction(orderId, 'REJECTED'),
+          style: 'destructive',
+        },
+      ],
+      { cancelable: true }
+    );
   };
 
   const handleUpdateStatus = async (orderId: string, newStatus: OrderStatus) => {
@@ -216,36 +280,65 @@ export default function OrdersScreen() {
 
             <View style={styles.orderFooter}>
               <Text style={styles.totalText}>
-                Total: ₦{order.total_amount}
+                Total: ₦{order.total_amount?.toLocaleString()}
               </Text>
               <Text style={styles.dateText}>
                 {new Date(order.order_date).toLocaleDateString()}
               </Text>
             </View>
 
-            {isVendor && order.status !== 'DELIVERED' && (
+            {isVendor && (
               <View style={styles.actions}>
-                {ORDER_STATUSES.map((status, index) => {
-                  const currentIndex = ORDER_STATUSES.indexOf(order.status);
-                  const isNextStatus = index === currentIndex + 1;
-
-                  if (!isNextStatus) return null;
-
-                  return (
+                {order.status === 'PLACED' ? (
+                  <View style={styles.actionButtons}>
                     <Pressable
-                      key={status}
-                      onPress={() => handleUpdateStatus(order.id, status)}
+                      onPress={() => handleOrderAction(order.id, 'ACCEPTED')}
                       style={({ pressed }) => [
                         styles.actionButton,
+                        styles.acceptButton,
                         pressed && styles.actionButtonPressed,
                       ]}
                     >
-                      <Text style={styles.actionButtonText}>
-                        Mark as {status}
-                      </Text>
+                      <Text style={styles.actionButtonText}>Accept</Text>
                     </Pressable>
-                  );
-                })}
+                    <Pressable
+                      onPress={() => confirmReject(order.id)}
+                      style={({ pressed }) => [
+                        styles.actionButton,
+                        styles.rejectButton,
+                        pressed && styles.actionButtonPressed,
+                      ]}
+                    >
+                      <Text style={styles.actionButtonText}>Reject</Text>
+                    </Pressable>
+                  </View>
+                ) : (
+                  order.status !== 'DELIVERED' && order.status !== 'REJECTED' && (
+                    <>
+                      {ORDER_STATUSES.map((status, index) => {
+                        const currentIndex = ORDER_STATUSES.indexOf(order.status as OrderStatus);
+                        const isNextStatus = index === currentIndex + 1;
+
+                        if (!isNextStatus) return null;
+
+                        return (
+                          <Pressable
+                            key={status}
+                            onPress={() => handleUpdateStatus(order.id, status)}
+                            style={({ pressed }) => [
+                              styles.actionButton,
+                              pressed && styles.actionButtonPressed,
+                            ]}
+                          >
+                            <Text style={styles.actionButtonText}>
+                              Mark as {status}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </>
+                  )
+                )}
               </View>
             )}
           </View>
@@ -367,12 +460,23 @@ const styles = StyleSheet.create({
     borderTopColor: '#e5e5e5',
     paddingTop: 12,
   },
+  actionButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
   actionButton: {
-    backgroundColor: '#007AFF',
+    flex: 1,
     padding: 12,
     borderRadius: 8,
     alignItems: 'center',
-    marginTop: 8,
+    backgroundColor: '#007AFF',
+  },
+  acceptButton: {
+    backgroundColor: '#34C759',
+  },
+  rejectButton: {
+    backgroundColor: '#FF3B30',
   },
   actionButtonPressed: {
     opacity: 0.7,

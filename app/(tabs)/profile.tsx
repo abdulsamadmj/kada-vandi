@@ -1,11 +1,18 @@
-import { View, Text, StyleSheet, ScrollView, Pressable, Image } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '../../contexts/auth';
-import { useCart } from '../../contexts/cart';
-import Toast from 'react-native-toast-message';
-import { useState } from 'react';
-import { AlertDialog } from '../../components/AlertDialog';
-import { useRouter } from 'expo-router';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Pressable,
+  Image,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useAuth } from "../../contexts/auth";
+import { useCart } from "../../contexts/cart";
+import Toast from "react-native-toast-message";
+import { useState } from "react";
+import { AlertDialog } from "../../components/AlertDialog";
+import { useRouter } from "expo-router";
 
 export default function ProfileScreen() {
   const { session, signOut } = useAuth();
@@ -13,19 +20,23 @@ export default function ProfileScreen() {
   const userData = session?.user?.user_metadata;
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const router = useRouter();
+  const isVendor = userData?.role === "vendor";
 
   const handleSignOut = async () => {
     try {
       await signOut();
       Toast.show({
-        type: 'success',
-        text1: 'Signed out successfully',
+        type: "success",
+        text1: "Signed out successfully",
       });
     } catch (error) {
       Toast.show({
-        type: 'error',
-        text1: 'Error signing out',
-        text2: error instanceof Error ? error.message : 'An unexpected error occurred',
+        type: "error",
+        text1: "Error signing out",
+        text2:
+          error instanceof Error
+            ? error.message
+            : "An unexpected error occurred",
       });
     }
   };
@@ -38,45 +49,51 @@ export default function ProfileScreen() {
 
       <ScrollView style={styles.content}>
         <View style={styles.profileSection}>
-          <Image 
-            source={{ 
-              uri: userData?.avatar_url || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400'
-            }} 
-            style={styles.avatar} 
+          <Image
+            source={{
+              uri:
+                userData?.avatar_url ||
+                "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400",
+            }}
+            style={styles.avatar}
           />
           <View style={styles.profileInfo}>
-            <Text style={styles.name}>{userData?.name || 'User'}</Text>
+            <Text style={styles.name}>{userData?.name || "User"}</Text>
             <Text style={styles.email}>{session?.user?.email}</Text>
           </View>
         </View>
 
         <View style={styles.section}>
-          <Pressable
-            onPress={() => router.push('/(tabs)/cart')}
-            style={({ pressed }) => [
-              styles.menuItem,
-              pressed && styles.menuItemPressed,
-            ]}>
-            <View style={styles.menuItemContent}>
-              <Ionicons name="cart-outline" size={24} color="#666666" />
-              <Text style={styles.menuItemText}>Cart</Text>
-              {getItemCount() > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>
-                    {getItemCount()} • ₦{getTotalAmount().toLocaleString()}
-                  </Text>
-                </View>
-              )}
-            </View>
-            <Ionicons name="chevron-forward" size={24} color="#666666" />
-          </Pressable>
+          {!isVendor && (
+            <Pressable
+              onPress={() => router.push("/(tabs)/cart")}
+              style={({ pressed }) => [
+                styles.menuItem,
+                pressed && styles.menuItemPressed,
+              ]}
+            >
+              <View style={styles.menuItemContent}>
+                <Ionicons name="cart-outline" size={24} color="#666666" />
+                <Text style={styles.menuItemText}>Cart</Text>
+                {getItemCount() > 0 && (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>
+                      {getItemCount()} • ₦{getTotalAmount().toLocaleString()}
+                    </Text>
+                  </View>
+                )}
+              </View>
+              <Ionicons name="chevron-forward" size={24} color="#666666" />
+            </Pressable>
+          )}
 
           <Pressable
             onPress={() => {}}
             style={({ pressed }) => [
               styles.menuItem,
               pressed && styles.menuItemPressed,
-            ]}>
+            ]}
+          >
             <View style={styles.menuItemContent}>
               <Ionicons name="person-outline" size={24} color="#666666" />
               <Text style={styles.menuItemText}>Edit Profile</Text>
@@ -90,7 +107,8 @@ export default function ProfileScreen() {
           style={({ pressed }) => [
             styles.logoutButton,
             pressed && styles.logoutButtonPressed,
-          ]}>
+          ]}
+        >
           <Ionicons name="log-out-outline" size={24} color="#FF3B30" />
           <Text style={styles.logoutText}>Log Out</Text>
         </Pressable>
@@ -114,27 +132,27 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: "#f5f5f5",
   },
   header: {
     padding: 16,
-    backgroundColor: '#ffffff',
+    backgroundColor: "#ffffff",
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e5e5',
+    borderBottomColor: "#e5e5e5",
   },
   title: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#000000',
+    fontWeight: "bold",
+    color: "#000000",
   },
   content: {
     flex: 1,
   },
   profileSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     padding: 16,
-    backgroundColor: '#ffffff',
+    backgroundColor: "#ffffff",
     marginBottom: 16,
   },
   avatar: {
@@ -148,31 +166,31 @@ const styles = StyleSheet.create({
   },
   name: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 4,
   },
   email: {
     fontSize: 14,
-    color: '#666666',
+    color: "#666666",
   },
   section: {
     marginBottom: 16,
-    backgroundColor: '#ffffff',
+    backgroundColor: "#ffffff",
   },
   menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e5e5',
+    borderBottomColor: "#e5e5e5",
   },
   menuItemPressed: {
     opacity: 0.7,
   },
   menuItemContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     flex: 1,
   },
   menuItemText: {
@@ -180,22 +198,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   badge: {
-    backgroundColor: '#007AFF',
+    backgroundColor: "#007AFF",
     borderRadius: 12,
     paddingHorizontal: 8,
     paddingVertical: 2,
     marginLeft: 8,
   },
   badgeText: {
-    color: '#ffffff',
+    color: "#ffffff",
     fontSize: 12,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#ffffff',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#ffffff",
     padding: 16,
     marginTop: 16,
     marginBottom: 32,
@@ -206,7 +224,7 @@ const styles = StyleSheet.create({
   logoutText: {
     marginLeft: 8,
     fontSize: 16,
-    color: '#FF3B30',
-    fontWeight: 'bold',
+    color: "#FF3B30",
+    fontWeight: "bold",
   },
 });

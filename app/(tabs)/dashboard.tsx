@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, Image, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Image, RefreshControl, Pressable } from 'react-native';
 import { useAuth } from '../../contexts/auth';
 import { Ionicons } from '@expo/vector-icons';
 import { VendorLocationTracker } from '../../components/VendorLocationTracker';
@@ -69,30 +69,6 @@ interface Vendor {
   };
 }
 
-const mockVendors: Vendor[] = [
-  {
-    id: "1",
-    name: "Fresh Delights Food Truck",
-    type: "Food Truck",
-    rating: 4.8,
-    image: "https://images.unsplash.com/photo-1565123409695-7b5ef63a2efb?w=500",
-    location: {
-      latitude: 37.78825,
-      longitude: -122.4324,
-    },
-  },
-  {
-    id: "2",
-    name: "Green Grocery Van",
-    type: "Grocery",
-    rating: 4.6,
-    image: "https://images.unsplash.com/photo-1542838132-92c53300491e?w=500",
-    location: {
-      latitude: 37.78925,
-      longitude: -122.4344,
-    },
-  },
-];
 
 export default function DashboardScreen() {
   const { session } = useAuth();
@@ -101,6 +77,30 @@ export default function DashboardScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const userData = session?.user?.user_metadata;
   const isVendor = userData?.role === 'vendor';
+
+  const handleOrderAction = async (orderId: string, action: 'ACCEPTED' | 'REJECTED') => {
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ status: action })
+        .eq('id', orderId);
+
+      if (error) throw error;
+
+      Toast.show({
+        type: 'success',
+        text1: `Order ${action.toLowerCase()}`,
+      });
+
+      fetchRecentOrders();
+    } catch (error) {
+      Toast.show({
+        type: 'error',
+        text1: `Failed to ${action.toLowerCase()} order`,
+        text2: error instanceof Error ? error.message : 'Please try again later',
+      });
+    }
+  };
 
   const fetchRecentOrders = async () => {
     try {
@@ -255,6 +255,33 @@ export default function DashboardScreen() {
                     {new Date(order.order_date).toLocaleString()}
                   </Text>
                 </View>
+
+                {isVendor && order.status === 'PLACED' && (
+                  <View style={styles.actions}>
+                    <View style={styles.actionButtons}>
+                      <Pressable
+                        onPress={() => handleOrderAction(order.id, 'ACCEPTED')}
+                        style={({ pressed }) => [
+                          styles.actionButton,
+                          styles.acceptButton,
+                          pressed && styles.actionButtonPressed,
+                        ]}
+                      >
+                        <Text style={styles.actionButtonText}>Accept</Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => handleOrderAction(order.id, 'REJECTED')}
+                        style={({ pressed }) => [
+                          styles.actionButton,
+                          styles.rejectButton,
+                          pressed && styles.actionButtonPressed,
+                        ]}
+                      >
+                        <Text style={styles.actionButtonText}>Reject</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                )}
               </View>
             ))}
           </View>
@@ -300,6 +327,8 @@ function getStatusColor(status: string): string {
       return '#FF2D55';
     case 'DELIVERED':
       return '#34C759';
+    case 'REJECTED':
+      return '#FF3B30';
     default:
       return '#666666';
   }
@@ -431,5 +460,35 @@ const styles = StyleSheet.create({
   dateText: {
     color: '#666',
     fontSize: 12,
+  },
+  actions: {
+    marginTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#e5e5e5',
+    paddingTop: 12,
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  actionButton: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  acceptButton: {
+    backgroundColor: '#34C759',
+  },
+  rejectButton: {
+    backgroundColor: '#FF3B30',
+  },
+  actionButtonPressed: {
+    opacity: 0.7,
+  },
+  actionButtonText: {
+    color: '#ffffff',
+    fontWeight: 'bold',
   },
 });

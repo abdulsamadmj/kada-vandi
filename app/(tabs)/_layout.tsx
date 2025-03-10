@@ -107,6 +107,7 @@ export default function TabLayout() {
             <CartTabIcon size={size} color={color} />
           ),
         }}
+        redirect={isVendor}
       />
       <Tabs.Screen
         name="profile"
