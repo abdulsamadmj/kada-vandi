@@ -323,7 +323,7 @@ export default function DashboardScreen() {
 
                 <View style={styles.orderFooter}>
                   <Text style={styles.totalText}>
-                    Total: ₦{order.total_amount?.toLocaleString()}
+                    Total: ₹{order.total_amount?.toLocaleString()}
                   </Text>
                   <Text style={styles.dateText}>
                     {new Date(order.order_date).toLocaleString()}

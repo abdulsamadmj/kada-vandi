@@ -362,7 +362,7 @@ export default function OrdersScreen() {
                     {item.quantity}x {item.name}
                   </Text>
                   <Text style={styles.itemPrice}>
-                    ₦{(item.price * item.quantity)}
+                    ₹{(item.price * item.quantity)}
                   </Text>
                 </View>
               ))}
@@ -370,7 +370,7 @@ export default function OrdersScreen() {
 
             <View style={styles.orderFooter}>
               <Text style={styles.totalText}>
-                Total: ₦{order.total_amount?.toLocaleString()}
+                Total: ₹{order.total_amount?.toLocaleString()}
               </Text>
               <Text style={styles.dateText}>
                 {new Date(order.order_date).toLocaleDateString()}
