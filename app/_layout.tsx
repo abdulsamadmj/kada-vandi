@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import 'react-native-reanimated';
 import { AuthProvider, useAuth } from '../contexts/auth';
 import { CartProvider } from '../contexts/cart';
+import { DeliveryAddressProvider } from '../contexts/delivery-address';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import Toast from 'react-native-toast-message';
 import { View, Linking } from 'react-native';
@@ -45,11 +46,13 @@ function RootLayoutNav() {
 
   return (
     <CartProvider>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="auth" options={{ headerShown: false }} />
-        <Stack.Screen name="+not-found" />
-      </Stack>
+      <DeliveryAddressProvider>
+        <Stack>
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="auth" options={{ headerShown: false }} />
+          <Stack.Screen name="+not-found" />
+        </Stack>
+      </DeliveryAddressProvider>
     </CartProvider>
   );
 }
@@ -149,7 +152,11 @@ export default function RootLayout() {
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <AuthProvider>
-        <RootLayoutNav />
+        <CartProvider>
+          <DeliveryAddressProvider>
+            <RootLayoutNav />
+          </DeliveryAddressProvider>
+        </CartProvider>
       </AuthProvider>
       <Toast />
     </ThemeProvider>

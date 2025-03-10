@@ -1,28 +1,34 @@
-import { Modal, View, Text, Pressable, StyleSheet } from 'react-native';
+import React from 'react';
+import { Modal, View, Text, StyleSheet, Pressable } from 'react-native';
 
-type AlertDialogProps = {
+interface AlertDialogProps {
   isVisible: boolean;
   title: string;
   message: string;
-  confirmText?: string;
-  cancelText?: string;
+  confirmText: string;
   onConfirm: () => void;
+  cancelText?: string;
   onCancel: () => void;
-};
+  options?: Array<{
+    text: string;
+    onPress: () => void;
+  }>;
+}
 
 export function AlertDialog({
   isVisible,
   title,
   message,
-  confirmText = 'Confirm',
-  cancelText = 'Cancel',
+  confirmText,
   onConfirm,
+  cancelText = 'Cancel',
   onCancel,
+  options,
 }: AlertDialogProps) {
   return (
     <Modal
       visible={isVisible}
-      transparent
+      transparent={true}
       animationType="fade"
       onRequestClose={onCancel}
     >
@@ -30,16 +36,43 @@ export function AlertDialog({
         <View style={styles.dialog}>
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.message}>{message}</Text>
-          <View style={styles.buttonContainer}>
+
+          {options && options.length > 0 && (
+            <View style={styles.optionsContainer}>
+              {options.map((option, index) => (
+                <Pressable
+                  key={index}
+                  onPress={option.onPress}
+                  style={({ pressed }) => [
+                    styles.optionButton,
+                    pressed && styles.buttonPressed,
+                  ]}
+                >
+                  <Text style={styles.optionText}>{option.text}</Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
+
+          <View style={styles.actions}>
             <Pressable
-              style={[styles.button, styles.cancelButton]}
               onPress={onCancel}
+              style={({ pressed }) => [
+                styles.button,
+                styles.cancelButton,
+                pressed && styles.buttonPressed,
+              ]}
             >
               <Text style={styles.cancelButtonText}>{cancelText}</Text>
             </Pressable>
+
             <Pressable
-              style={[styles.button, styles.confirmButton]}
               onPress={onConfirm}
+              style={({ pressed }) => [
+                styles.button,
+                styles.confirmButton,
+                pressed && styles.buttonPressed,
+              ]}
             >
               <Text style={styles.confirmButtonText}>{confirmText}</Text>
             </Pressable>
@@ -58,50 +91,64 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   dialog: {
-    backgroundColor: 'white',
+    backgroundColor: '#ffffff',
     borderRadius: 12,
     padding: 24,
     width: '80%',
-    maxWidth: 400,
+    maxWidth: 340,
   },
   title: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 8,
-    textAlign: 'center',
   },
   message: {
     fontSize: 16,
     color: '#666666',
     marginBottom: 24,
-    textAlign: 'center',
   },
-  buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 12,
+  optionsContainer: {
+    marginBottom: 16,
   },
-  button: {
-    flex: 1,
+  optionButton: {
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 8,
-    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+    marginBottom: 8,
+  },
+  optionText: {
+    fontSize: 16,
+    color: '#007AFF',
+    textAlign: 'center',
+  },
+  actions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+  },
+  button: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  buttonPressed: {
+    opacity: 0.7,
   },
   cancelButton: {
-    backgroundColor: '#f1f1f1',
-  },
-  confirmButton: {
-    backgroundColor: '#FF3B30',
+    backgroundColor: '#f5f5f5',
   },
   cancelButtonText: {
-    fontSize: 16,
     color: '#666666',
+    fontSize: 16,
     fontWeight: '600',
   },
+  confirmButton: {
+    backgroundColor: '#007AFF',
+  },
   confirmButtonText: {
+    color: '#ffffff',
     fontSize: 16,
-    color: 'white',
     fontWeight: '600',
   },
 });

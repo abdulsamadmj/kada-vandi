@@ -64,6 +64,20 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Account Settings</Text>
+          <Pressable
+            onPress={() => router.push('/profile/addresses')}
+            style={({ pressed }) => [
+              styles.menuItem,
+              pressed && styles.menuItemPressed,
+            ]}
+          >
+            <View style={styles.menuItemContent}>
+              <Ionicons name="location-outline" size={24} color="#666666" />
+              <Text style={styles.menuItemText}>Delivery Addresses</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={24} color="#666666" />
+          </Pressable>
           {!isVendor && (
             <Pressable
               onPress={() => router.push("/(tabs)/cart")}
@@ -78,7 +92,7 @@ export default function ProfileScreen() {
                 {getItemCount() > 0 && (
                   <View style={styles.badge}>
                     <Text style={styles.badgeText}>
-                      {getItemCount()} • ₦{getTotalAmount().toLocaleString()}
+                      {getItemCount()} • ₹{getTotalAmount().toLocaleString()}
                     </Text>
                   </View>
                 )}
@@ -176,6 +190,11 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: 16,
     backgroundColor: "#ffffff",
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 8,
   },
   menuItem: {
     flexDirection: "row",
