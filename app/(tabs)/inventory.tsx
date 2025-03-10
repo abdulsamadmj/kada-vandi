@@ -222,7 +222,7 @@ export default function Inventory() {
         <Text style={styles.itemName}>{item.name}</Text>
         {item.description && <Text style={styles.itemDescription}>{item.description}</Text>}
         <Text style={styles.itemDetails}>
-          Price: ₦{item.price.toLocaleString()} | Stock: {item.inventory_count}
+          Price: ₹{item.price.toLocaleString()} | Stock: {item.inventory_count}
           {item.expiration_date && ` | Expires: ${new Date(item.expiration_date).toLocaleDateString()}`}
         </Text>
       </View>
