@@ -21,6 +21,7 @@ interface OrderItem {
   name: string;
   quantity: number;
   price: number;
+  product_id: string;
 }
 
 interface Order {
@@ -31,6 +32,30 @@ interface Order {
   vendor_name?: string;
   customer_name?: string;
   items: OrderItem[];
+}
+
+interface OrderItemForUpdate {
+  product_id: string;
+  quantity: number;
+  name: string;
+}
+
+interface SupabaseOrderItem {
+  quantity: number;
+  product_id: string;
+  products: {
+    name: string;
+  };
+}
+
+interface SupabaseOrderResponse {
+  order_items: Array<{
+    quantity: number;
+    product_id: string;
+    products: {
+      name: string;
+    };
+  }>;
 }
 
 interface SupabaseQueryResult {
@@ -47,6 +72,7 @@ interface SupabaseQueryResult {
   order_items: Array<{
     quantity: number;
     price: number;
+    product_id: string;
     products: {
       name: string;
     };
@@ -78,6 +104,7 @@ export default function OrdersScreen() {
           order_items (
             quantity,
             price,
+            product_id,
             products (
               name
             )
@@ -114,6 +141,7 @@ export default function OrdersScreen() {
           name: item.products.name,
           quantity: item.quantity,
           price: item.price,
+          product_id: item.product_id,
         })),
       }));
 
@@ -130,8 +158,70 @@ export default function OrdersScreen() {
     }
   };
 
+  const updateInventoryQuantities = async (items: OrderItemForUpdate[]) => {
+    try {
+      // Get current inventory quantities
+      const { data: products, error: fetchError } = await supabase
+        .from('products')
+        .select('id, inventory_count')
+        .in('id', items.map(item => item.product_id));
+
+      if (fetchError) throw fetchError;
+
+      // Update each product's inventory count
+      for (const item of items) {
+        const product = products?.find(p => p.id === item.product_id);
+        if (!product) continue;
+
+        const newCount = product.inventory_count - item.quantity;
+        if (newCount < 0) {
+          throw new Error(`Insufficient inventory for ${item.name}`);
+        }
+
+        const { error: updateError } = await supabase
+          .from('products')
+          .update({ inventory_count: newCount })
+          .eq('id', item.product_id);
+
+        if (updateError) throw updateError;
+      }
+    } catch (error) {
+      throw error;
+    }
+  };
+
   const handleOrderAction = async (orderId: string, action: 'ACCEPTED' | 'REJECTED') => {
     try {
+      if (action === 'ACCEPTED') {
+        // Get order items first
+        const { data: orderData, error: orderError } = await supabase
+          .from('orders')
+          .select(`
+            order_items (
+              quantity,
+              product_id,
+              products (
+                name
+              )
+            )
+          `)
+          .eq('id', orderId)
+          .single();
+
+        if (orderError) throw orderError;
+
+        // Format items for inventory update
+        const items: OrderItemForUpdate[] = (orderData as SupabaseOrderResponse).order_items.map(item => ({
+          product_id: item.product_id,
+          quantity: item.quantity,
+          name: item.products.name,
+        }));
+
+        // Update inventory quantities
+        await updateInventoryQuantities(items);
+      }
+
+      // Update order status
       const { error } = await supabase
         .from('orders')
         .update({ status: action })
